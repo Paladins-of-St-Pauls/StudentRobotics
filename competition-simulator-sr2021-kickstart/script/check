@@ -1,0 +1,16 @@
+#!/bin/sh
+
+cd $(dirname $0)/..
+
+SCRIPTS=$(find script -type f | grep -vP "/(linting/|testing/|typing/|check$)")
+
+./script/testing/test
+result=$?
+
+./script/linting/lint $SCRIPTS
+result=$((result | $?))
+
+./script/typing/check $SCRIPTS
+result=$((result | $?))
+
+exit $result
