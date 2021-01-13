@@ -1,0 +1,429 @@
+#VRML_SIM R2020b utf8
+WorldInfo {
+  coordinateSystem "NUE"
+  basicTimeStep 8
+}
+Viewpoint {
+  orientation -1 0 0 0.8997040656177113
+  position 0 11.3842 9.20412
+}
+TexturedBackgroundLight {
+  texture "noon_park_empty"
+}
+TexturedBackground {
+  skybox FALSE
+  skyColor [
+    0.960784 0.952941 0.956863
+  ]
+}
+
+# Updating colours? Update `territory_controller.py`
+SRRobot {
+  translation -4.5 0 -2
+  rotation 0 1 0 3.926
+  controller "sr_controller"
+  model "Robot0"
+  flagColour 1 0 1
+}
+SRRobot {
+  translation 4.4 0 -2
+  rotation 0 1 0 2.266
+  controller "sr_controller"
+  model "Robot1"
+  flagColour 1 1 0
+}
+
+
+Robot {
+  translation 0 -1 0
+  name "comp-supervisor"
+  model "CompetitionSupervisor"
+  description "A supervisor 'robot' to help run the competition."
+  controller "competition_supervisor"
+  supervisor TRUE
+  children [
+    # this is a hack to detect if we are running on version 2020b
+    Connector {
+      name "2021a-compatibility"
+      type "passive"
+    }
+  ]
+}
+Robot {
+  translation 0 0 0
+  name "territory_controller"
+  description "A supervisor 'robot' to handle claiming of territories"
+  controller "territory_controller"
+  supervisor TRUE
+  children [
+    DEF PN SRTerritory {
+      translation -3 0 -1.5
+      territoryName "PNTerritory"
+      emitterName "PNEmitter"
+      receiverName "PNReceiver"
+    }
+    DEF EY SRTerritory {
+      translation -1.5 0 -0.75
+      territoryName "EYTerritory"
+      emitterName "EYEmitter"
+      receiverName "EYReceiver"
+    }
+    DEF BE SRTerritory {
+      territoryName "BETerritory"
+      emitterName "BEEmitter"
+      receiverName "BEReceiver"
+    }
+    DEF PO SRTerritory {
+      translation 1.5 0 -0.75
+      territoryName "POTerritory"
+      emitterName "POEmitter"
+      receiverName "POReceiver"
+    }
+    DEF YL SRTerritory {
+      translation 3 0 -1.5
+      territoryName "YLTerritory"
+      emitterName "YLEmitter"
+      receiverName "YLReceiver"
+    }
+    DEF BG SRTerritory {
+      translation -4.1 0 0.1
+      territoryName "BGTerritory"
+      emitterName "BGEmitter"
+      receiverName "BGReceiver"
+    }
+    DEF OX SRTerritory {
+      translation -4.1 0 1.7
+      territoryName "OXTerritory"
+      emitterName "OXEmitter"
+      receiverName "OXReceiver"
+    }
+    DEF TS SRTerritory {
+      translation -2.65 0 0.9
+      territoryName "TSTerritory"
+      emitterName "TSEmitter"
+      receiverName "TSReceiver"
+    }
+    DEF VB SRTerritory {
+      translation -1.1 0 1.7
+      territoryName "VBTerritory"
+      emitterName "VBEmitter"
+      receiverName "VBReceiver"
+    }
+    DEF HV SRTerritory {
+      translation 4.1 0 0.1
+      territoryName "HVTerritory"
+      emitterName "HVEmitter"
+      receiverName "HVReceiver"
+    }
+    DEF BN SRTerritory {
+      translation 4.1 0 1.7
+      territoryName "BNTerritory"
+      emitterName "BNEmitter"
+      receiverName "BNReceiver"
+    }
+    DEF SW SRTerritory {
+      translation 2.65 0 0.9
+      territoryName "SWTerritory"
+      emitterName "SWEmitter"
+      receiverName "SWReceiver"
+    }
+    DEF SZ SRTerritory {
+      translation 1.1 0 1.7
+      territoryName "SZTerritory"
+      emitterName "SZEmitter"
+      receiverName "SZReceiver"
+    }
+  ]
+}
+Solid {
+  children [
+    DEF SHAPE Shape {
+      appearance PBRAppearance {
+        baseColor 0.095395215 0.22841774 0.8000001
+        roughness 1
+        metalness 0
+      }
+      geometry IndexedFaceSet {
+        coord Coordinate {
+          point [
+            0 0 -1
+            3 0 -2.55975
+            3 0.3 -2.55975
+            0 0.3 -1
+            -3 0.3 -2.55975
+            -3 0 -2.55975
+          ]
+        }
+        coordIndex [
+          0, 1, 2, 3, -1,
+          0, 3, 4, 5, -1,
+          4, 3, 2
+        ]
+      }
+    }
+  ]
+  name "Arena Triangle"
+  boundingObject USE SHAPE
+}
+Solid {
+  translation 0 -0.001 0
+  children [
+    Shape {
+      appearance MattePaint {
+        baseColor 0.6 0.6 0.6
+      }
+      geometry Plane {
+        size 10 5
+      }
+    }
+  ]
+  boundingObject Plane {
+    size 10 5
+  }
+}
+Solid {
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColor 0.095395215 0.22841774 0.8000001
+        roughness 1
+        metalness 0
+      }
+      geometry IndexedFaceSet {
+        coord Coordinate {
+          point [
+            -5 0 -1.5
+            -4 0 -1.5
+            -4 0 -2.5
+            -5 0 -2.5
+            4 0 -1.5
+            5 0 -1.5
+            5 0 -2.5
+            4 0 -2.5
+          ]
+        }
+        coordIndex [
+          0, 1, 2, 3, -1,
+          4, 5, 6, 7,
+        ]
+      }
+    }
+  ]
+  name "Robot Corners"
+}
+Solid {
+  translation -5.075 0.15 0
+  children [
+    DEF SHAPE Shape {
+      appearance PBRAppearance {
+        baseColor 0.095395215 0.22841774 0.8000001
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.15 0.4 5
+      }
+    }
+  ]
+  boundingObject USE SHAPE
+  name "West Wall"
+}
+Solid {
+  translation 5.075 0.15 0
+  children [
+    DEF SHAPE Shape {
+      appearance PBRAppearance {
+        baseColor 0.095395215 0.22841774 0.8000001
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.15 0.4 5
+      }
+    }
+  ]
+  boundingObject USE SHAPE
+  name "East Wall"
+}
+Solid {
+  translation 0 0.15 2.575
+  children [
+    DEF SHAPE Shape {
+      appearance PBRAppearance {
+        baseColor 0.095395215 0.22841774 0.8000001
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 10.3 0.4 0.15
+      }
+    }
+  ]
+  boundingObject USE SHAPE
+  name "North Wall"
+}
+Solid {
+  translation 0 0.15 -2.575
+  children [
+    DEF SHAPE Shape {
+      appearance PBRAppearance {
+        baseColor 0.095395215 0.22841774 0.8000001
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 10.3 0.4 0.15
+      }
+    }
+  ]
+  boundingObject USE SHAPE
+  name "South Wall"
+}
+Solid {
+  # An issue with the DistanceSensor in webots-2020b-r1 
+  # causes certain faces to not be detected
+  # It appears that the issue does not occur in IndexedFaceSet
+  # when all faces have a common vertex with all others
+  children [
+    Solid {
+      children [
+        DEF SHAPE Shape {
+          appearance PBRAppearance {
+            baseColor 0.095395215 0.22841774 0.8000001
+            roughness 1
+            metalness 0
+          }
+          geometry IndexedFaceSet {
+            coord Coordinate {
+              point [
+                -0.74 0.3 0.67
+                -5.00 0.3 -1.58
+                -5.00 0.0 -1.58
+                -0.74 0.0 0.67
+
+                -0.74 0.0 0.95
+                -0.74 0.3 0.95
+                -5.00 0.0 -1.3
+                -5.00 0.3 -1.3
+              ]
+            }
+            coordIndex [
+              3 2 1 0 -1 # back
+              5 4 3 0 # left
+            ]
+          }
+        }
+      ]
+      boundingObject USE SHAPE
+      name "North Side"
+    }
+    Solid {
+      children [
+        DEF SHAPE Shape {
+          appearance PBRAppearance {
+            baseColor 0.095395215 0.22841774 0.8000001
+            roughness 1
+            metalness 0
+          }
+          geometry IndexedFaceSet {
+            coord Coordinate {
+              point [
+                -0.74 0.3 0.67
+                -5.00 0.3 -1.58
+                -5.00 0.0 -1.58
+                -0.74 0.0 0.67
+
+                -0.74 0.0 0.95
+                -0.74 0.3 0.95
+                -5.00 0.0 -1.3
+                -5.00 0.3 -1.3
+              ]
+            }
+            coordIndex [
+              7 5 0 1 -1 # top
+              7 6 4 5 # front
+            ]
+          }
+        }
+      ]
+      boundingObject USE SHAPE
+      name "South Side"
+    }
+  ]
+  name "West Inner Wall"
+  radarCrossSection 1
+  rotationStep 0.261799
+}
+Solid {
+  # An issue with the DistanceSensor in webots-2020b-r1 
+  # causes certain faces to not be detected
+  # It appears that the issue does not occur in IndexedFaceSet
+  # when all faces have a common vertex with all others
+  children [
+    Solid {
+      children [
+        DEF SHAPE Shape {
+          appearance PBRAppearance {
+            baseColor 0.095395215 0.22841774 0.8000001
+            roughness 1
+            metalness 0
+          }
+          geometry IndexedFaceSet {
+            coord Coordinate {
+              point [
+                0.74 0.3 0.67
+                5.00 0.3 -1.58
+                5.00 0.0 -1.58
+                0.74 0.0 0.67
+
+                0.74 0.0 0.95
+                0.74 0.3 0.95
+              ]
+            }
+            coordIndex [
+              0 1 2 3 -1 # back
+              0 3 4 5 # left
+            ]
+          }
+        }
+      ]
+      boundingObject USE SHAPE
+      name "North Side"
+    }
+    Solid {
+      children [
+        DEF SHAPE Shape {
+          appearance PBRAppearance {
+            baseColor 0.095395215 0.22841774 0.8000001
+            roughness 1
+            metalness 0
+          }
+          geometry IndexedFaceSet {
+            coord Coordinate {
+              point [
+                0.74 0.3 0.67
+                5.00 0.3 -1.58
+                5.00 0.0 -1.58
+                0.74 0.0 0.67
+
+                0.74 0.0 0.95
+                0.74 0.3 0.95
+                5.00 0.0 -1.3
+                5.00 0.3 -1.3
+              ]
+            }
+            coordIndex [
+              1 0 5 7 -1 # top
+              5 4 6 7 # front
+            ]
+          }
+        }
+      ]
+      boundingObject USE SHAPE
+      name "South Side"
+    }
+  ]
+  name "East Inner Wall"
+  radarCrossSection 1
+  rotationStep 0.261799
+}

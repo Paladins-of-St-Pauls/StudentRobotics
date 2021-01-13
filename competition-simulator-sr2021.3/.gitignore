@@ -1,0 +1,8 @@
+*.pyc
+.*.wbproj
+.*.cache
+
+/.idea
+/.vscode
+/.mypy_cache
+/venv
