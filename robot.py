@@ -71,11 +71,11 @@ while (True):
         direction = bool(random.getrandbits(1))
         
         if(direction):
-            R.motors[0].m0.power = -30
-            R.motors[0].m1.power = 30
+            R.motors[0].m0.power = -(random.randint(25, 35))
+            R.motors[0].m1.power = (random.randint(25, 35))
         else:
-            R.motors[0].m0.power = 30
-            R.motors[0].m1.power = -30
+            R.motors[0].m0.power = (random.randint(25, 35))
+            R.motors[0].m1.power = -(random.randint(25, 35))
         R.sleep(1)
    
  
