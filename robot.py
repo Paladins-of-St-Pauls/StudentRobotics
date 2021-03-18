@@ -79,32 +79,145 @@ def correct_heading(degrees, variance=2):
     stop()
     return
 
-# First part by dead-reckoning
-print(f"heading = {get_heading(1000)}")
-move(75,1.4)
-stop()
-print(f"heading = {get_heading(1000)}")
-turn(-40)
-stop()
-print(f"heading before correction = {get_heading(1000)}")
-correct_heading(116)
-print(f"heading = {get_heading(1000)}")
-move(75,2.2)
-stop(1.0)
-correct_heading(116)
-R.radio.claim_territory()
-print(f"heading = {get_heading(1000)}")
-move(100,2.6)
-stop(1.5)
-correct_heading(116)
-R.radio.claim_territory()
-print(f"heading = {get_heading(1000)}")
-move(100,-5.5)
-print(f"heading = {get_heading(1000)}")
-stop(1.5)
-correct_heading(180)
-correct_heading(180)
-correct_heading(180)
-correct_heading(180)
-correct_heading(180)
-move(100, 3)
+def turnXX(degrees, speed, b, c):
+    t = (math.fabs(degrees) - b) / c
+    p = math.copysign(25,degrees)
+    set_power(p,-p)
+    R.sleep(t)    
+
+def turn25(degrees):
+    if math.fabs(degrees) >= 1:
+        turnXX(degrees, 25, -0.5404, 85.86)
+
+def turn50(degrees):
+    if math.fabs(degrees) >= 4:
+        turnXX(degrees, 50, -1.597, 174.9)
+    else:
+        turn25(degrees)
+
+def turn75(degrees):
+    if math.fabs(degrees) >= 15:
+        turnXX(degrees, 75, -9.562, 269.5)
+    else:
+        turn50(degrees)
+
+def turn100(degrees):
+    if math.fabs(degrees) >= 25:
+        turnXX(degrees, 100, -20.15, 345.2)
+    else:
+        turn75(degrees)
+
+if(R.zone == 0):
+    # First part by dead-reckoning
+    turn100(90)
+    print(f"heading = {get_heading(1000)}")
+    move(75,2)
+    print(f"heading = {get_heading(1000)}")
+    correct_heading(150)
+    move(75,2)
+    correct_heading(170)
+    move(50,0.5)
+    stop()
+    #BG
+    R.radio.claim_territory()
+    stop()
+    move(75,3.5)
+    correct_heading(170)
+    stop()
+    #OX
+    R.radio.claim_territory()
+    stop()
+    correct_heading(100)
+    m_left.power=-60
+    m_right.power=-40
+    R.sleep(0.7)
+    stop()
+    move(75,1)
+    correct_heading(60)
+    move(75,2.5)
+    stop()
+    #TS
+    R.radio.claim_territory()
+    stop()
+    move(20,-0.4)
+    correct_heading(135)
+    # stop()
+    move(75,4.7)
+    stop()
+    stop()
+    #VB
+    R.radio.claim_territory()
+    stop()
+    correct_heading(75)
+    move(75,5)
+    stop()
+    #SZ
+    R.radio.claim_territory()
+    stop()
+    m_left.power=-40
+    m_right.power=-60
+    R.sleep(1)
+    stop()
+    correct_heading(180)
+    move(75,-4)
+    stop()
+    #BE
+    R.radio.claim_territory()
+    stop()
+else:
+    # First part by dead-reckoning
+    turn100(90)
+    print(f"heading = {get_heading(1000)}")
+    move(75,2)
+    print(f"heading = {get_heading(1000)}")
+    correct_heading(150)
+    move(75,2)
+    correct_heading(170)
+    move(50,0.5)
+    stop()
+    #BG
+    R.radio.claim_territory()
+    stop()
+    move(75,3.5)
+    correct_heading(170)
+    stop()
+    #OX
+    R.radio.claim_territory()
+    stop()
+    correct_heading(100)
+    m_left.power=-60
+    m_right.power=-40
+    R.sleep(0.7)
+    stop()
+    move(75,1)
+    correct_heading(60)
+    move(75,2.5)
+    stop()
+    #TS
+    R.radio.claim_territory()
+    stop()
+    move(20,-0.4)
+    correct_heading(135)
+    # stop()
+    move(75,4.7)
+    stop()
+    stop()
+    #VB
+    R.radio.claim_territory()
+    stop()
+    correct_heading(75)
+    move(75,5)
+    stop()
+    #SZ
+    R.radio.claim_territory()
+    stop()
+    m_left.power=-40
+    m_right.power=-60
+    R.sleep(1)
+    stop()
+    correct_heading(180)
+    move(75,-4)
+    stop()
+    #BE
+    R.radio.claim_territory()
+    stop()
