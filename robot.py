@@ -367,6 +367,43 @@ else:
     
     
 while (True):
+    R.ruggeduinos[0].digital_write(4, True)
+    R.sleep(.1)
+
+    R.ruggeduinos[0].digital_write(4, False)
+    R.sleep(.1)
+
+    R.ruggeduinos[0].digital_write(7, True)
+    R.sleep(.1)
+
+    R.ruggeduinos[0].digital_write(7, False)
+    R.sleep(.1)
+    
+    R.ruggeduinos[0].digital_write(5, True)
+    R.sleep(.1)
+
+    R.ruggeduinos[0].digital_write(5, False)
+    R.sleep(.1)
+
+    R.ruggeduinos[0].digital_write(8, True)
+    R.sleep(.1)
+
+    R.ruggeduinos[0].digital_write(8, False)
+    R.sleep(.1)
+
+    R.ruggeduinos[0].digital_write(6, True)
+    R.sleep(.1)
+
+    R.ruggeduinos[0].digital_write(6, False)
+    R.sleep(.1)
+
+    R.ruggeduinos[0].digital_write(9, True)
+    R.sleep(.1)
+
+    R.ruggeduinos[0].digital_write(9, False)
+    R.sleep(.1)
+
+    R.sleep(0.01)
     R.radio.claim_territory()
     greatestSignal = 0
     transmitters = R.radio.sweep()
