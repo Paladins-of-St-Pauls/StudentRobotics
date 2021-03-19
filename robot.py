@@ -2,11 +2,19 @@ from sr.robot import *
 import statistics
 import math
 from collections import defaultdict,deque
+import random
+import pprint
+import math
+from collections import defaultdict,deque
 
 R = Robot()
 
 m_left = R.motors[0].m0
 m_right = R.motors[0].m1
+leftSpeed = 70
+rightSpeed = 70
+turnSpeed = 20
+counterReact = turnSpeed * 2
 
 def set_power(left, right):
     m_left.power = left
@@ -31,7 +39,7 @@ def turn(degrees):
     set_power(p,-p)
     R.sleep(sleep_time)
 
-def move(power, distance):
+def drive(power, distance):
     per_distance = 2
     sleep_time = math.fabs(distance/per_distance)
     p = math.copysign(power,distance)
@@ -39,9 +47,32 @@ def move(power, distance):
     set_power(p,p)
     R.sleep(sleep_time)
 
-def stop(sleep_time=0.5):
+def move(power, distance):
+    if R.ruggeduinos[0].digital_read(2) == False:
+        drive(power,distance)
+
+#CHANGED FROM 0.5 TO 1 ~chris
+def stop(sleep_time=1):
     set_power(0,0)
     R.sleep(sleep_time)
+    
+    
+    
+def getout():
+    print("RUNNNN")
+    print("RUNNNN")
+    print("RUNNNN")
+    print("RUNNNN")
+    
+def killme():
+    print("helprobot")
+    print("helprobot")
+    print("helprobot")
+    print("helprobot")
+    print("helprobot")
+    
+    
+    
 
 tx_depends = defaultdict(list)
 #TODO record the dependecies of the towers
@@ -109,51 +140,106 @@ def turn100(degrees):
 
 if(R.zone == 0):
     # First part by dead-reckoning
-    turn100(90)
+    #print("null")
+    
+   # getout()
+    killme()
     print(f"heading = {get_heading(1000)}")
-    move(75,2)
+    move(75,1.4)
+    stop()
+    print(f"heading = {get_heading(1000)}")
+    turn(-40)
+    stop()
+    print(f"heading before correction = {get_heading(1000)}")
+    correct_heading(113)
+    print(f"heading = {get_heading(1000)}")
+    move(75,2.2)
+    stop(1.0)
+    correct_heading(113)
+    R.radio.claim_territory()
+    print(f"heading = {get_heading(1000)}")
+    move(100,2.6)
+    stop(1.5)
+    print("1")
+    correct_heading(116)
+    R.radio.claim_territory()
+    print(f"heading = {get_heading(1000)}")
+    move(100,-5.3)
+    print(f"heading = {get_heading(1000)}")
+    stop(1.5)
+    correct_heading(180)
+    correct_heading(180)
+    correct_heading(180)
+    correct_heading(180)
+    correct_heading(180)
+    move(100, 3)
+   # getout()
+
+    print("suspect")
+    turn100(100)
+    stop()
+
+    print(f"heading = {get_heading(1000)}")
+    #move(75,2)
     print(f"heading = {get_heading(1000)}")
     correct_heading(150)
-    move(75,2)
+    R.radio.claim_territory()
+
+    stop()
+
+    #move(75,2)
+    move(75,3.7)
+    print("2")
+    R.radio.claim_territory()
     correct_heading(170)
+   # print('FOR FUTURE REFERENCES, THATS A BASKET HOLDER, NOT A BASKET')
+   # print('FOR FUTURE REFERENCES, THATS A BASKET HOLDER, NOT A BASKET')
     move(50,0.5)
+    #R.radio.claim_territory()
+
+   
+
     stop()
     #BG
+    #R.radio.claim_territory()
+
+    #move(75,3.5)
     R.radio.claim_territory()
-    stop()
-    move(75,3.5)
     correct_heading(170)
     stop()
     #OX
-    R.radio.claim_territory()
-    stop()
-    correct_heading(100)
+    #R.radio.claim_territory()
+    #stop()
+    correct_heading(106)
     m_left.power=-60
     m_right.power=-40
     R.sleep(0.7)
     stop()
     move(75,1)
     correct_heading(60)
-    move(75,2.5)
+    move(75,2.2)
     stop()
     #TS
-    R.radio.claim_territory()
-    stop()
+    if R.ruggeduinos[0].digital_read(2) == False:
+        R.radio.claim_territory()
+        stop()   
     move(20,-0.4)
-    correct_heading(135)
+    correct_heading(133)
     # stop()
-    move(75,4.7)
+    move(75,4.5)
     stop()
     stop()
     #VB
-    R.radio.claim_territory()
-    stop()
+    if R.ruggeduinos[0].digital_read(2) == False:
+        R.radio.claim_territory()
+        stop()   
     correct_heading(75)
     move(75,5)
     stop()
     #SZ
-    R.radio.claim_territory()
-    stop()
+    if R.ruggeduinos[0].digital_read(2) == False:
+        R.radio.claim_territory()
+        stop()
     m_left.power=-40
     m_right.power=-60
     R.sleep(1)
@@ -162,62 +248,182 @@ if(R.zone == 0):
     move(75,-4)
     stop()
     #BE
-    R.radio.claim_territory()
-    stop()
+    if R.ruggeduinos[0].digital_read(2) == False:
+        R.radio.claim_territory()
+        stop()   
 else:
     # First part by dead-reckoning
-    turn100(90)
+    #print("null")
+    
+   # getout()
+    
     print(f"heading = {get_heading(1000)}")
-    move(75,2)
-    print(f"heading = {get_heading(1000)}")
-    correct_heading(150)
-    move(75,2)
-    correct_heading(170)
-    move(50,0.5)
+    move(75,1.4)
     stop()
-    #BG
+    print(f"heading = {get_heading(1000)}")
+    turn(30)
+    stop()
+    print(f"heading before correction = {get_heading(1000)}")
+    correct_heading(235)
+    print(f"heading = {get_heading(1000)}")
+    move(75,2.2)
+    stop(1.0)
+    correct_heading(235)
     R.radio.claim_territory()
+    print(f"heading = {get_heading(1000)}")
+    move(100,2.6)
+    stop(1.5)
+    print("1")
+    correct_heading(240)
+    R.radio.claim_territory()
+    print(f"heading = {get_heading(1000)}")
+    move(100,-5.3)
+    print(f"heading = {get_heading(1000)}")
+    stop(1.5)
+    correct_heading(180)
+    correct_heading(180)
+    correct_heading(180)
+    correct_heading(180)
+    correct_heading(180)
+    move(100, 3)
+   # getout()
+
+     # First part by dead-reckoning
+    turn100(-93)
     stop()
+
+    print(f"heading = {get_heading(1000)}")
+    #move(75,1)
+    print("tgatghjjhdgetshjgjdtfghs")
+    print("tgatghjjhdgetshjgjdtfghs")
+    print("tgatghjjhdgetshjgjdtfghs")
+   # stop()
+
+    print(f"heading = {get_heading(1000)}")
+    correct_heading(200)
+    R.radio.claim_territory()
+
+   # move(75,2)
+ #   correct_heading(190)
+    #move(50,0.5)
+    stop()
+    stop()
+
+
+
+    #HV
+
     move(75,3.5)
-    correct_heading(170)
+    correct_heading(190)
     stop()
-    #OX
-    R.radio.claim_territory()
-    stop()
-    correct_heading(100)
-    m_left.power=-60
-    m_right.power=-40
+    #BN
+    if R.ruggeduinos[0].digital_read(2) == False:
+        R.radio.claim_territory()
+        stop()   
+    correct_heading(260)
+    m_left.power=-40
+    m_right.power=-60
     R.sleep(0.7)
     stop()
     move(75,1)
-    correct_heading(60)
-    move(75,2.5)
+    correct_heading(300)
+    move(75,2.7)
     stop()
-    #TS
-    R.radio.claim_territory()
-    stop()
+    #SW
+    if R.ruggeduinos[0].digital_read(2) == False:
+        R.radio.claim_territory()
+        stop()   
     move(20,-0.4)
-    correct_heading(135)
+    correct_heading(230)
     # stop()
     move(75,4.7)
     stop()
     stop()
-    #VB
-    R.radio.claim_territory()
-    stop()
-    correct_heading(75)
+    #SZ
+    if R.ruggeduinos[0].digital_read(2) == False:
+        R.radio.claim_territory()
+        stop()   
+    correct_heading(285)
     move(75,5)
     stop()
-    #SZ
-    R.radio.claim_territory()
-    stop()
-    m_left.power=-40
-    m_right.power=-60
+    #VB
+    if R.ruggeduinos[0].digital_read(2) == False:
+        R.radio.claim_territory()
+        stop()   
+    m_left.power=-60
+    m_right.power=-40
     R.sleep(1)
     stop()
     correct_heading(180)
     move(75,-4)
     stop()
     #BE
+    if R.ruggeduinos[0].digital_read(2) == False:
+        R.radio.claim_territory()
+        stop()   
+    
+    
+    
+    
+    
+while (True):
     R.radio.claim_territory()
-    stop()
+    greatestSignal = 0
+    transmitters = R.radio.sweep()
+    for tx in transmitters:
+        if(tx.signal_strength > greatestSignal):
+            if(tx.target_info.owned_by != R.zone):
+                greatestSignal = tx.signal_strength
+
+    R.motors[0].m0.power = leftSpeed
+    R.motors[0].m1.power = rightSpeed
+    
+    if(greatestSignal > 2):
+        
+        R.motors[0].m0.power = 0
+        R.motors[0].m1.power = 0
+        R.sleep(0.5)
+        R.motors[0].m0.power = -turnSpeed
+        R.motors[0].m1.power = turnSpeed
+        R.sleep(0.5)
+    if(greatestSignal > greatestSignal):
+        R.motors[0].m0.power = 0
+        R.motors[0].m1.power = 0
+        R.sleep(0.5)
+        R.motors[0].m0.power = counterReact
+        R.motors[0].m1.power = -counterReact
+        R.sleep(0.5)
+
+#varied slowdown
+    if(greatestSignal > .7):
+        R.motors[0].m0.power = leftSpeed / (greatestSignal * 4 ) + 5
+        R.motors[0].m1.power = rightSpeed / (greatestSignal * 4 ) + 5
+
+
+    if(greatestSignal > .6):
+        R.motors[0].m0.power = leftSpeed / (greatestSignal * 3.5 )
+        R.motors[0].m1.power = rightSpeed / (greatestSignal * 3.5 )
+
+
+    if(greatestSignal > .5):
+        R.motors[0].m0.power = leftSpeed / (greatestSignal * 3 )
+        R.motors[0].m1.power = rightSpeed / (greatestSignal * 3 )
+
+#wall turn around
+    if R.ruggeduinos[0].digital_read(2):
+        print(greatestSignal)
+        if(greatestSignal > 30):
+            R.sleep(1)
+        
+        direction = bool(random.getrandbits(1))
+        
+        if(direction):
+            R.motors[0].m0.power = -(random.randint(25, 35))
+            R.motors[0].m1.power = (random.randint(25, 35))
+        else:
+            R.motors[0].m0.power = (random.randint(25, 35))
+            R.motors[0].m1.power = -(random.randint(25, 35))
+        R.sleep(1)
+   
+ 
+    R.sleep(0.01)
