@@ -5,6 +5,7 @@ from collections import defaultdict,deque
 import numpy
 from sklearn.metrics import r2_score
 from enum import IntEnum
+from pprint import pprint
 
 R = Robot()
 
@@ -53,45 +54,51 @@ def get_heading(n=5):
     return heading/n * (360/math.tau)
 
 
+def get_real_heading():
+    x, _, z = R.compass._compass.getValues()
+    heading = math.atan2(x, z) % math.tau
+    return heading * (360/math.tau)
+
+
 def turnXX(degrees, power, b, c):
     t = (math.fabs(degrees) - b) / c
     p = math.copysign(power,degrees)
     print(f"TURN power[{p}] sleep[{t}]")
     set_power(p,-p)
     R.sleep(t)    
+    return t
 
 def turn25(degrees):
     if math.fabs(degrees) >= 1:
-        turnXX(degrees, 25, -0.5404, 85.86)
+        return turnXX(degrees, 25, -0.5404, 85.86)
 
 def turn50(degrees):
     if math.fabs(degrees) >= 4:
-        turnXX(degrees, 50, -1.597, 174.9)
+        return turnXX(degrees, 50, -1.597, 174.9)
     else:
-        turn25(degrees)
+        return turn25(degrees)
 
 def turn75(degrees):
     if math.fabs(degrees) >= 15:
-        turnXX(degrees, 75, -9.562, 269.5)
+        return turnXX(degrees, 75, -9.562, 269.5)
     else:
-        turn50(degrees)
+        return turn50(degrees)
 
 def turn100(degrees):
     if math.fabs(degrees) >= 25:
-        turnXX(degrees, 100, -20.15, 345.2)
+        return turnXX(degrees, 100, -20.15, 345.2)
     else:
-        turn75(degrees)
+        return turn75(degrees)
 
-def move(power, distance):
-    per_distance = 2
-    sleep_time = math.fabs(distance/per_distance)
-    p = math.copysign(power,distance)
-    print(f"MOVE power[{p}] sleep[{sleep_time}]")
-    set_power(p,p)
+
+def move(power, sleep_time):
+    print(f"MOVE power[{power}] sleep[{sleep_time}]")
+    set_power(power, power)
     R.sleep(sleep_time)
 
-def stop(sleep_time=0.5):
-    set_power(0,0)
+
+def stop(sleep_time=0.01):
+    set_power(0, 0)
     R.sleep(sleep_time)
 
 tx_depends = defaultdict(list)
@@ -116,19 +123,25 @@ def sweep():
         tx_status[station_code]['strength'] = tx.signal_strength
         tx_status[station_code]['bearing'] = tx.bearing * 360 / math.tau
         tx_status[station_code]['owner'] = tx.target_info.owned_by
-        print(f"[{station_code}] - bearing {tx_status[station_code]['bearing']}  strength - {tx.signal_strength}")
+        tx_status[station_code]['distance'] = signal_strength_to_distance(tx.signal_strength)
+        print(f"[{station_code}] - bearing {tx_status[station_code]['bearing']:.2f}  distance - {tx_status[station_code]['distance']:.2f}   strength - {tx_status[station_code]['strength']:.2f}")
 
-def set_heading(degrees, variance=2):
+
+def signal_strength_to_distance(signal_strength):
+    x = math.log10(signal_strength)
+    distance = -0.1558 * x*x*x + 0.6721 * x*x - 1.238 * x + 1.011
+    return distance if distance > 0 else 0
+
+
+def set_heading(degrees, variance=1,turnfn=turn100):
     heading = get_heading()
     print(f"Current heading: {heading}   Desired heading: {degrees}")
     diff = degrees - heading
     if math.fabs(diff) < variance:
         print("No need to correct")
-        return
-    print(f"Correcting by {diff} degrees.")
-    turn50(diff)
-    stop()
-    return
+        return 0
+    print(f"Correcting by {diff} degrees.")    
+    return turnfn(diff)
 
 def mirror(degrees):
     return degrees if zone0 else 360 - degrees
@@ -162,29 +175,34 @@ def mirror(degrees):
 # set_heading(180)
 # move(100, 1.5)
 
-sweep()
-move(25,3.1)
+# Robot starts at 7,0  BN is at 6.6,3
+# Bearing = atan()
+# BN_heading = (math.atan2(6.6-7,0-3) % math.tau )*360/math.tau
+# set_heading(BN_heading)
+# stop(0.3)
+
+set_power(5,100)
+R.sleep(0.45)
+move(100,2)
 stop()
-set_heading(mirror(180))
-strengths=[]
-for i in range(0,50):
-    set_heading(mirror(180))
-    move(25,0.4)
-    stop()
-    sweep()
+sweep()
+# stop(1.9)
 
-    print(f"Distance[L,R] = {distance(SENSOR.FRONT_LEFT)}, {distance(SENSOR.FRONT_RIGHT)}")
+R.radio.begin_territory_claim()
+turn_time = set_heading(265,turnfn=turn25)
+turn_time += set_heading(265,turnfn=turn25)
+turn_time += set_heading(265,turnfn=turn25)
+print(f"Saved {turn_time} seconds")
+stop(2 - turn_time)
+R.radio.complete_territory_claim()
 
-    if front_bumper():
-        break
+sweep()
+move(100,2.95)
+stop(0.1)
+R.radio.begin_territory_claim()
+stop(1)
+sweep()
+stop(1)
+R.radio.complete_territory_claim()
 
-    if StationCode.BN in tx_status['latest']:
-        led(LED.LEFT_BLUE,True)
-        print(tx_status['latest'])
-        strengths.append(tx_status[tx_status['latest'][0]]['strength'])
-    else:
-        led(LED.LEFT_BLUE,False)
-        strengths.append(0.0)
-
-print(strengths)
 
