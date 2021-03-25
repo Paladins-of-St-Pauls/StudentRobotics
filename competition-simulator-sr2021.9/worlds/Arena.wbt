@@ -5,11 +5,11 @@ WorldInfo {
 }
 Viewpoint {
   # the combined rotation of 0, -1, 0, 1.5708 & -1, 0, 0, 1
-  orientation -0.43231 -0.79134 -0.43231 1.80272
-  position -11.5 17.6 0
+  #orientation -0.43231 -0.79134 -0.43231 1.80272
+  #position -11.5 17.6 0
   # top view:
-  #orientation -0.57735 -0.57735 -0.57735 2.09440
-  #position 0 20.5 0
+  orientation -0.57735 -0.57735 -0.57735 2.09440
+  position 0 20.5 0
   near 0.1
 }
 TexturedBackgroundLight {
@@ -32,8 +32,8 @@ DEF ROBOT-0 SRRobot {
   controllerArgs "0"
 }
 DEF ROBOT-1 SRRobot {
-  translation 0 0 7
-  rotation 0 1 0 0
+  translation 0 0 6.6
+  rotation 0 1 0 1.5708
   controller "sr_controller"
   model "Robot1"
   flagColour 1 1 0

@@ -137,6 +137,7 @@ def turn100(degrees):
         turnXX(degrees, 100, -20.15, 345.2)
     else:
         turn75(degrees)
+blah
 
 if(R.zone == 0):
     # First part by dead-reckoning
