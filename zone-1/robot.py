@@ -13,6 +13,75 @@ zone0 = R.zone == 0
 m_left = R.motors[0].m0
 m_right = R.motors[0].m1
 
+station_mirror_dict = {
+    StationCode.OX: StationCode.BN,
+    StationCode.TS: StationCode.SW,
+    StationCode.VB: StationCode.SZ,
+    StationCode.BG: StationCode.HV,
+    StationCode.EY: StationCode.PO,
+    StationCode.PN: StationCode.YL,
+    StationCode.TH: StationCode.SF,
+    StationCode.PL: StationCode.PL,
+    StationCode.BE: StationCode.BE,
+    StationCode.HA: StationCode.HA,
+    StationCode.YT: StationCode.YT,
+    StationCode.FL: StationCode.FL,
+    StationCode.PO: StationCode.EY,
+    StationCode.SZ: StationCode.VB,
+    StationCode.SW: StationCode.TS,
+    StationCode.YL: StationCode.PN,
+    StationCode.HV: StationCode.BG,
+    StationCode.SF: StationCode.TH,
+    StationCode.BN: StationCode.OX
+}
+
+station_score_dict = {
+    StationCode.OX: 2,
+    StationCode.TS: 2,
+    StationCode.VB: 2,
+    StationCode.BG: 2,
+    StationCode.EY: 2,
+    StationCode.PN: 2,
+    StationCode.TH: 4,
+    StationCode.PL: 2,
+    StationCode.BE: 2,
+    StationCode.HA: 4,
+    StationCode.YT: 8,
+    StationCode.FL: 4,
+    StationCode.PO: 2,
+    StationCode.SZ: 2,
+    StationCode.SW: 2,
+    StationCode.YL: 2,
+    StationCode.HV: 2,
+    StationCode.SF: 2,
+    StationCode.BN: 2
+}
+
+station_pos_dict = {
+    StationCode.OX: [-6.6, 3],
+    StationCode.TS: [-2.75,2.75],
+    StationCode.VB: [-1.95,0.75],
+    StationCode.BG: [-4.2, 0],
+    StationCode.EY: [-1.95,-0.75],
+    StationCode.PN: [-4.2,-1.8],
+    StationCode.TH: [-6.6,-3],
+    StationCode.PL: [0,3],
+    StationCode.BE: [0, 1.5],
+    StationCode.HA: [0,0],
+    StationCode.YT: [0,-1.5],
+    StationCode.FL: [0,-3],
+    StationCode.PO: [1.95,-0.75],
+    StationCode.SZ: [1.95,0.75],
+    StationCode.SW: [2.75,2.75],
+    StationCode.YL: [4.2,-1.8],
+    StationCode.HV: [4.2,0],
+    StationCode.SF: [6.6,-3],
+    StationCode.BN: [6.6,3]    
+}
+
+def mirror_coords(coord):
+    return coord if zone0 else [coord[0],-coord[1]]
+
 
 
 def front_bumper():
@@ -110,6 +179,39 @@ for station_code in StationCode:
     tx_status[station_code]['strength'] = None
     tx_status[station_code]['bearing'] = None
     
+# set the initial robot pos
+last_robot_pos = mirror_coords([0,-7])    
+
+# update the robot pos based on the transmitters
+def update_robot_pos():
+    ys = []
+    xs = []
+    weights = []
+    heading = get_heading()
+    print(f"Robot heading {heading:.0f}")
+    for station_code in tx_status['latest']:
+        bearing = tx_status[station_code]['bearing']
+        distance = tx_status[station_code]['distance']
+        angle = (180 + heading + bearing)%360
+        print(f"{station_code} Bearing: {bearing:.0f} Distance {distance:.2f}")
+        print(f"{station_code} Heading+Bearing: {heading+bearing:.0f} Distance {distance:.2f}")
+        print(f"Robot Pos relative to {station_code} is {angle:.0f} degrees {distance:.2f}m")
+        x = station_pos_dict[station_code][0] + math.sin(angle/360*math.tau)*distance
+        y = station_pos_dict[station_code][1] - math.cos(angle/360*math.tau)*distance
+        print(f"Robot at {x:.2f}, {y:.2f}")
+        xs.append(x)
+        ys.append(y)
+        weights.append(1.0/(distance + 0.1))
+    if len(xs) < 1:
+        return
+    x = numpy.average(xs)
+    y = numpy.average(ys)
+    xw = numpy.average(xs,weights=weights)
+    yw = numpy.average(ys,weights=weights)
+    print(f"Avg Robot Position {x:.2f},{y:.2f}")
+    print(f"Weighted Avg Robot Position {xw:.2f},{yw:.2f}")
+    last_robot_pos = [xw,yw]    
+
 def sweep():
     transmitters = R.radio.sweep()
     # Keep the latest sweep code in 'latest'
@@ -125,7 +227,7 @@ def sweep():
         tx_status[station_code]['owner'] = tx.target_info.owned_by
         tx_status[station_code]['distance'] = signal_strength_to_distance(tx.signal_strength)
         print(f"[{station_code}] - bearing {tx_status[station_code]['bearing']:.2f}  distance - {tx_status[station_code]['distance']:.2f}   strength - {tx_status[station_code]['strength']:.2f}")
-
+    update_robot_pos()
 
 def signal_strength_to_distance(signal_strength):
     x = math.log10(signal_strength)
@@ -146,40 +248,6 @@ def set_heading(degrees, variance=1,turnfn=turn100):
 def mirror(degrees):
     return degrees if zone0 else 360 - degrees
 
-
-# First part by dead-reckoning
-# set_heading(mirror(143))
-# print(f"heading = {get_heading(1000)}")
-# move(75,0.5)
-# stop()
-# print(f"heading = {get_heading(1000)}")
-
-# print(f"heading before correction = {get_heading(1000)}")
-# set_heading(mirror(116))
-# print(f"heading = {get_heading(1000)}")
-# move(75,3.2)
-# stop(1.0)
-# set_heading(mirror(116))
-# R.radio.claim_territory()
-# print(f"heading = {get_heading(1000)}")
-# move(100,2.6)
-# stop(1.5)
-# set_heading(mirror(116))
-# R.radio.claim_territory()
-# print(f"heading = {get_heading(1000)}")
-# move(100,-5.5)
-# print(f"heading = {get_heading(1000)}")
-# stop(1.5)
-# set_heading(180)
-# move(50, 0.1)
-# set_heading(180)
-# move(100, 1.5)
-
-# Robot starts at 7,0  BN is at 6.6,3
-# Bearing = atan()
-# BN_heading = (math.atan2(6.6-7,0-3) % math.tau )*360/math.tau
-# set_heading(BN_heading)
-# stop(0.3)
 
 set_power(5,100)
 R.sleep(0.45)
