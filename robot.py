@@ -2,19 +2,46 @@ from sr.robot import *
 import statistics
 import math
 from collections import defaultdict,deque
-import random
-import pprint
-import math
-from collections import defaultdict,deque
+import numpy
+from sklearn.metrics import r2_score
+from enum import IntEnum
+from pprint import pprint
 
 R = Robot()
 
+zone0 = R.zone == 0
 m_left = R.motors[0].m0
 m_right = R.motors[0].m1
-leftSpeed = 70
-rightSpeed = 70
-turnSpeed = 20
-counterReact = turnSpeed * 2
+
+
+
+def front_bumper():
+    return R.ruggeduinos[0].digital_read(2)
+
+def back_bumper():
+    return R.ruggeduinos[0].digital_read(3)
+
+class LED(IntEnum):
+    RIGHT_RED = 4
+    RIGHT_GREEN = 5
+    RIGHT_BLUE = 6
+    LEFT_BLUE = 7
+    LEFT_GREEN = 8
+    LEFT_RED = 9
+
+def led(led_enum, state):
+    R.ruggeduinos[0].digital_write(led_enum, state)
+
+class SENSOR(IntEnum):
+    FRONT_LEFT = 0
+    FRONT_RIGHT = 1
+    LEFT = 2
+    RIGHT = 3
+    BACK_LEFT = 4
+    BACK_RIGHT = 5    
+
+def distance(sensor_enum):
+    return R.ruggeduinos[0].analogue_read(sensor_enum)
 
 def set_power(left, right):
     m_left.power = left
@@ -26,53 +53,53 @@ def get_heading(n=5):
         heading += R.compass.get_heading()
     return heading/n * (360/math.tau)
 
-def turn(degrees):
-    radians = degrees * (math.tau/360)
-    if radians != 0:
-        per_tenth = 0.43737389828257306 
-        sleep_time = math.fabs(radians)/per_tenth/10
-        power = 75 
-        p = math.copysign(power,radians)
-    else:
-        p = 0
-    print(f"TURN power[{p}] sleep[{sleep_time}]")
+
+def get_real_heading():
+    x, _, z = R.compass._compass.getValues()
+    heading = math.atan2(x, z) % math.tau
+    return heading * (360/math.tau)
+
+
+def turnXX(degrees, power, b, c):
+    t = (math.fabs(degrees) - b) / c
+    p = math.copysign(power,degrees)
+    print(f"TURN power[{p}] sleep[{t}]")
     set_power(p,-p)
+    R.sleep(t)    
+    return t
+
+def turn25(degrees):
+    if math.fabs(degrees) >= 1:
+        return turnXX(degrees, 25, -0.5404, 85.86)
+
+def turn50(degrees):
+    if math.fabs(degrees) >= 4:
+        return turnXX(degrees, 50, -1.597, 174.9)
+    else:
+        return turn25(degrees)
+
+def turn75(degrees):
+    if math.fabs(degrees) >= 15:
+        return turnXX(degrees, 75, -9.562, 269.5)
+    else:
+        return turn50(degrees)
+
+def turn100(degrees):
+    if math.fabs(degrees) >= 25:
+        return turnXX(degrees, 100, -20.15, 345.2)
+    else:
+        return turn75(degrees)
+
+
+def move(power, sleep_time):
+    print(f"MOVE power[{power}] sleep[{sleep_time}]")
+    set_power(power, power)
     R.sleep(sleep_time)
 
-def drive(power, distance):
-    per_distance = 2
-    sleep_time = math.fabs(distance/per_distance)
-    p = math.copysign(power,distance)
-    print(f"MOVE power[{p}] sleep[{sleep_time}]")
-    set_power(p,p)
-    R.sleep(sleep_time)
 
-def move(power, distance):
-    if R.ruggeduinos[0].digital_read(2) == False:
-        drive(power,distance)
-
-#CHANGED FROM 0.5 TO 1 ~chris
-def stop(sleep_time=1):
-    set_power(0,0)
+def stop(sleep_time=0.01):
+    set_power(0, 0)
     R.sleep(sleep_time)
-    
-    
-    
-def getout():
-    print("RUNNNN")
-    print("RUNNNN")
-    print("RUNNNN")
-    print("RUNNNN")
-    
-def killme():
-    print("helprobot")
-    print("helprobot")
-    print("helprobot")
-    print("helprobot")
-    print("helprobot")
-    
-    
-    
 
 tx_depends = defaultdict(list)
 #TODO record the dependecies of the towers
@@ -94,373 +121,112 @@ def sweep():
         tx_status[station_code]['tx'] = tx
         # and the individual values
         tx_status[station_code]['strength'] = tx.signal_strength
-        tx_status[station_code]['bearing'] = tx.bearing
+        tx_status[station_code]['bearing'] = tx.bearing * 360 / math.tau
         tx_status[station_code]['owner'] = tx.target_info.owned_by
-        tx_status[station_code]['locked'] = tx.target_info.locked
+        tx_status[station_code]['distance'] = signal_strength_to_distance(tx.signal_strength)
+        print(f"[{station_code}] - bearing {tx_status[station_code]['bearing']:.2f}  distance - {tx_status[station_code]['distance']:.2f}   strength - {tx_status[station_code]['strength']:.2f}")
 
-def correct_heading(degrees, variance=2):
+
+def signal_strength_to_distance(signal_strength):
+    x = math.log10(signal_strength)
+    distance = -0.1558 * x*x*x + 0.6721 * x*x - 1.238 * x + 1.011
+    return distance if distance > 0 else 0
+
+
+def set_heading(degrees, variance=1,turnfn=turn100):
     heading = get_heading()
-    print(f"Current heading: {heading}")
-    diff = heading - degrees
+    print(f"Current heading: {heading}   Desired heading: {degrees}")
+    diff = degrees - heading
     if math.fabs(diff) < variance:
         print("No need to correct")
-        return
-    print(f"Correcting by {diff} degrees.")
-    turn(-diff)
-    stop()
-    return
+        return 0
+    print(f"Correcting by {diff} degrees.")    
+    return turnfn(diff)
 
-def turnXX(degrees, speed, b, c):
-    t = (math.fabs(degrees) - b) / c
-    p = math.copysign(25,degrees)
-    set_power(p,-p)
-    R.sleep(t)    
+def mirror(degrees):
+    return degrees if zone0 else 360 - degrees
 
-def turn25(degrees):
-    if math.fabs(degrees) >= 1:
-        turnXX(degrees, 25, -0.5404, 85.86)
+def go_to_station(station_code):
+    sweep()
+    if not station_code in tx_status['latest']:
+        print(f"Can't see {station_code}")
+        return False
+    bearing = tx_status[station_code]['bearing']
+    strength = tx_status[station_code]['strength']
+    distance = tx_status[station_code]['distance']
+    print(f"Go to {station_code} - bearing {bearing:.2f}  distance - {distance:.2f}   strength - {strength:.2f}")
+    while strength < 4.2:      
+        heading = get_heading()
+        set_heading(heading + bearing)
+        move(100, 0.2 if strength < 1.5 else 0.1)
+        sweep()
+        if not station_code in tx_status['latest']:
+            print(f"Can't see {station_code}")
+            return False
+        bearing = tx_status[station_code]['bearing']
+        strength = tx_status[station_code]['strength']
+        distance = tx_status[station_code]['distance']
+        print(f"Go to {station_code} - bearing {bearing:.2f}  distance - {distance:.2f}   strength - {strength:.2f}")
+        if front_bumper():
+            print("stuck - front bumper pressed")
+            move(-100,0.35)
+            stop()
+            sweep()
+            bearing = tx_status[station_code]['bearing']
+            heading = get_heading()
+            set_heading(heading + bearing)
+        
+    print(f"Arrived at {station_code}")
+    return True
 
-def turn50(degrees):
-    if math.fabs(degrees) >= 4:
-        turnXX(degrees, 50, -1.597, 174.9)
-    else:
-        turn25(degrees)
+def claim_station(station_code, next_direction):
+    R.radio.begin_territory_claim()
+    turn_time = 0.2
+    stop(turn_time)
+    sweep()
+    if tx_status[station_code]['strength'] > 20:
+        print('Moving Back')
+        turn_time += 0.25
+        move(-100, 0.25)
+    turn_time += set_heading(next_direction,turnfn=turn25)
+    turn_time += set_heading(next_direction,turnfn=turn25)
+    turn_time += set_heading(next_direction,turnfn=turn25)
+    print(f"Saved {turn_time} seconds")
+    if turn_time < 1.999:
+        stop(2 - turn_time)
+    R.radio.complete_territory_claim()
 
-def turn75(degrees):
-    if math.fabs(degrees) >= 15:
-        turnXX(degrees, 75, -9.562, 269.5)
-    else:
-        turn50(degrees)
 
-def turn100(degrees):
-    if math.fabs(degrees) >= 25:
-        turnXX(degrees, 100, -20.15, 345.2)
-    else:
-        turn75(degrees)
-
-if(R.zone == 0):
-    # First part by dead-reckoning
-    #print("null")
-    
-   # getout()
-    killme()
-    print(f"heading = {get_heading(1000)}")
-    move(75,1.4)
-    stop()
-    print(f"heading = {get_heading(1000)}")
-    turn(-40)
-    stop()
-    print(f"heading before correction = {get_heading(1000)}")
-    correct_heading(113)
-    print(f"heading = {get_heading(1000)}")
-    move(75,2.2)
-    stop(1.0)
-    correct_heading(113)
-    R.radio.claim_territory()
-    print(f"heading = {get_heading(1000)}")
-    move(100,2.6)
-    stop(1.5)
-    print("1")
-    correct_heading(116)
-    R.radio.claim_territory()
-    print(f"heading = {get_heading(1000)}")
-    move(100,-5.3)
-    print(f"heading = {get_heading(1000)}")
-    stop(1.5)
-    correct_heading(180)
-    correct_heading(180)
-    correct_heading(180)
-    correct_heading(180)
-    correct_heading(180)
-    move(100, 3)
-   # getout()
-
-    print("suspect")
-    turn100(100)
-    stop()
-
-    print(f"heading = {get_heading(1000)}")
-    #move(75,2)
-    print(f"heading = {get_heading(1000)}")
-    correct_heading(150)
-    R.radio.claim_territory()
-
-    stop()
-
-    #move(75,2)
-    move(75,3.7)
-    print("2")
-    R.radio.claim_territory()
-    correct_heading(170)
-   # print('FOR FUTURE REFERENCES, THATS A BASKET HOLDER, NOT A BASKET')
-   # print('FOR FUTURE REFERENCES, THATS A BASKET HOLDER, NOT A BASKET')
-    move(50,0.5)
-    #R.radio.claim_territory()
-
-   
-
-    stop()
-    #BG
-    #R.radio.claim_territory()
-
-    #move(75,3.5)
-    R.radio.claim_territory()
-    correct_heading(170)
-    stop()
-    #OX
-    #R.radio.claim_territory()
-    #stop()
-    correct_heading(106)
-    m_left.power=-60
-    m_right.power=-40
-    R.sleep(0.7)
-    stop()
-    move(75,1)
-    correct_heading(60)
-    move(75,2.2)
-    stop()
-    #TS
-    if R.ruggeduinos[0].digital_read(2) == False:
-        R.radio.claim_territory()
-        stop()   
-    move(20,-0.4)
-    correct_heading(133)
-    # stop()
-    move(75,4.5)
-    stop()
-    stop()
-    #VB
-    if R.ruggeduinos[0].digital_read(2) == False:
-        R.radio.claim_territory()
-        stop()   
-    correct_heading(75)
-    move(75,5)
-    stop()
-    #SZ
-    if R.ruggeduinos[0].digital_read(2) == False:
-        R.radio.claim_territory()
-        stop()
-    m_left.power=-40
-    m_right.power=-60
-    R.sleep(1)
-    stop()
-    correct_heading(180)
-    move(75,-4)
-    stop()
-    #BE
-    if R.ruggeduinos[0].digital_read(2) == False:
-        R.radio.claim_territory()
-        stop()   
+if zone0:
+  set_power(100,5)
 else:
-    # First part by dead-reckoning
-    #print("null")
-    
-   # getout()
-    
-    print(f"heading = {get_heading(1000)}")
-    move(75,1.4)
-    stop()
-    print(f"heading = {get_heading(1000)}")
-    turn(30)
-    stop()
-    print(f"heading before correction = {get_heading(1000)}")
-    correct_heading(235)
-    print(f"heading = {get_heading(1000)}")
-    move(75,2.2)
-    stop(1.0)
-    correct_heading(235)
-    R.radio.claim_territory()
-    print(f"heading = {get_heading(1000)}")
-    move(100,2.6)
-    stop(1.5)
-    print("1")
-    correct_heading(240)
-    R.radio.claim_territory()
-    print(f"heading = {get_heading(1000)}")
-    move(100,-5.3)
-    print(f"heading = {get_heading(1000)}")
-    stop(1.5)
-    correct_heading(180)
-    correct_heading(180)
-    correct_heading(180)
-    correct_heading(180)
-    correct_heading(180)
-    move(100, 3)
-   # getout()
+  set_power(5,100)
 
-     # First part by dead-reckoning
-    turn100(-93)
-    stop()
+R.sleep(0.45)
+move(100,1)
+go_to_station(StationCode.OX)
+stop()
+# stop(1.9)
 
-    print(f"heading = {get_heading(1000)}")
-    #move(75,1)
-    print("tgatghjjhdgetshjgjdtfghs")
-    print("tgatghjjhdgetshjgjdtfghs")
-    print("tgatghjjhdgetshjgjdtfghs")
-   # stop()
+claim_station(StationCode.OX, mirror(95))
 
-    print(f"heading = {get_heading(1000)}")
-    correct_heading(200)
-    R.radio.claim_territory()
+move(100,2)
 
-   # move(75,2)
- #   correct_heading(190)
-    #move(50,0.5)
-    stop()
-    stop()
+go_to_station(StationCode.TS)
+stop()
+claim_station(StationCode.TS, mirror(30))
+
+go_to_station(StationCode.VB)
+stop()
+claim_station(StationCode.VB, mirror(290))
+
+# sweep()
+# move(100,2.95)
+# stop(0.1)
+# R.radio.begin_territory_claim()
+# stop(1)
+# sweep()
+# stop(1)
+# R.radio.complete_territory_claim()
 
 
-
-    #HV
-
-    move(75,3.5)
-    correct_heading(190)
-    stop()
-    #BN
-    if R.ruggeduinos[0].digital_read(2) == False:
-        R.radio.claim_territory()
-        stop()   
-    correct_heading(260)
-    m_left.power=-40
-    m_right.power=-60
-    R.sleep(0.7)
-    stop()
-    move(75,1)
-    correct_heading(300)
-    move(75,2.7)
-    stop()
-    #SW
-    if R.ruggeduinos[0].digital_read(2) == False:
-        R.radio.claim_territory()
-        stop()   
-    move(20,-0.4)
-    correct_heading(230)
-    # stop()
-    move(75,4.7)
-    stop()
-    stop()
-    #SZ
-    if R.ruggeduinos[0].digital_read(2) == False:
-        R.radio.claim_territory()
-        stop()   
-    correct_heading(285)
-    move(75,5)
-    stop()
-    #VB
-    if R.ruggeduinos[0].digital_read(2) == False:
-        R.radio.claim_territory()
-        stop()   
-    m_left.power=-60
-    m_right.power=-40
-    R.sleep(1)
-    stop()
-    correct_heading(180)
-    move(75,-4)
-    stop()
-    #BE
-    if R.ruggeduinos[0].digital_read(2) == False:
-        R.radio.claim_territory()
-        stop()   
-    
-    
-    
-    
-    
-while (True):
-    R.ruggeduinos[0].digital_write(4, True)
-    R.sleep(.1)
-
-    R.ruggeduinos[0].digital_write(4, False)
-    R.sleep(.1)
-
-    R.ruggeduinos[0].digital_write(7, True)
-    R.sleep(.1)
-
-    R.ruggeduinos[0].digital_write(7, False)
-    R.sleep(.1)
-    
-    R.ruggeduinos[0].digital_write(5, True)
-    R.sleep(.1)
-
-    R.ruggeduinos[0].digital_write(5, False)
-    R.sleep(.1)
-
-    R.ruggeduinos[0].digital_write(8, True)
-    R.sleep(.1)
-
-    R.ruggeduinos[0].digital_write(8, False)
-    R.sleep(.1)
-
-    R.ruggeduinos[0].digital_write(6, True)
-    R.sleep(.1)
-
-    R.ruggeduinos[0].digital_write(6, False)
-    R.sleep(.1)
-
-    R.ruggeduinos[0].digital_write(9, True)
-    R.sleep(.1)
-
-    R.ruggeduinos[0].digital_write(9, False)
-    R.sleep(.1)
-
-    R.sleep(0.01)
-    R.radio.claim_territory()
-    greatestSignal = 0
-    transmitters = R.radio.sweep()
-    for tx in transmitters:
-        if(tx.signal_strength > greatestSignal):
-            if(tx.target_info.owned_by != R.zone):
-                greatestSignal = tx.signal_strength
-
-    R.motors[0].m0.power = leftSpeed
-    R.motors[0].m1.power = rightSpeed
-    
-    if(greatestSignal > 2):
-        
-        R.motors[0].m0.power = 0
-        R.motors[0].m1.power = 0
-        R.sleep(0.5)
-        R.motors[0].m0.power = -turnSpeed
-        R.motors[0].m1.power = turnSpeed
-        R.sleep(0.5)
-    if(greatestSignal > greatestSignal):
-        R.motors[0].m0.power = 0
-        R.motors[0].m1.power = 0
-        R.sleep(0.5)
-        R.motors[0].m0.power = counterReact
-        R.motors[0].m1.power = -counterReact
-        R.sleep(0.5)
-
-#varied slowdown
-    if(greatestSignal > .7):
-        R.motors[0].m0.power = leftSpeed / (greatestSignal * 4 ) + 5
-        R.motors[0].m1.power = rightSpeed / (greatestSignal * 4 ) + 5
-
-
-    if(greatestSignal > .6):
-        R.motors[0].m0.power = leftSpeed / (greatestSignal * 3.5 )
-        R.motors[0].m1.power = rightSpeed / (greatestSignal * 3.5 )
-
-
-    if(greatestSignal > .5):
-        R.motors[0].m0.power = leftSpeed / (greatestSignal * 3 )
-        R.motors[0].m1.power = rightSpeed / (greatestSignal * 3 )
-
-#wall turn around
-    if R.ruggeduinos[0].digital_read(2):
-        print(greatestSignal)
-        if(greatestSignal > 30):
-            R.sleep(1)
-        
-        direction = bool(random.getrandbits(1))
-        
-        if(direction):
-            R.motors[0].m0.power = -(random.randint(25, 35))
-            R.motors[0].m1.power = (random.randint(25, 35))
-        else:
-            R.motors[0].m0.power = (random.randint(25, 35))
-            R.motors[0].m1.power = -(random.randint(25, 35))
-        R.sleep(1)
-   
- 
-    R.sleep(0.01)
