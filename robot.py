@@ -133,7 +133,7 @@ def signal_strength_to_distance(signal_strength):
     return distance if distance > 0 else 0
 
 
-def set_heading(degrees, variance=1,turnfn=turn100):
+def set_heading(degrees, variance=1,turnfn=turn50):
     heading = get_heading()
     print(f"Current heading: {heading}   Desired heading: {degrees}")
     diff = degrees - heading
@@ -142,6 +142,14 @@ def set_heading(degrees, variance=1,turnfn=turn100):
         return 0
     print(f"Correcting by {diff} degrees.")    
     return turnfn(diff)
+
+def move_to_bearing(power, sleep_time, bearing):
+    scale = 1.0 - math.fabs(bearing)/90
+    if bearing > 0:
+        set_power(power, scale*power)
+    else:
+        set_power(scale*power, power)
+    R.sleep(sleep_time)
 
 def mirror(degrees):
     return degrees if zone0 else 360 - degrees
@@ -156,9 +164,8 @@ def go_to_station(station_code):
     distance = tx_status[station_code]['distance']
     print(f"Go to {station_code} - bearing {bearing:.2f}  distance - {distance:.2f}   strength - {strength:.2f}")
     while strength < 4.2:      
-        heading = get_heading()
-        set_heading(heading + bearing)
-        move(100, 0.2 if strength < 1.5 else 0.1)
+        move_to_bearing(100,0.1,bearing)
+        # move(100, 0.2 if strength < 1.5 else 0.1)
         sweep()
         if not station_code in tx_status['latest']:
             print(f"Can't see {station_code}")
