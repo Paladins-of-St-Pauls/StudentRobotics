@@ -79,8 +79,11 @@ station_pos_dict = {
     StationCode.BN: [6.6,3]    
 }
 
+def mirror_station(station_code):
+    return station_code if zone0 else station_mirror_dict[station_code]
+
 def mirror_coords(coord):
-    return coord if zone0 else [coord[0],-coord[1]]
+    return coord if zone0 else [-coord[0],coord[1]]
 
 
 
@@ -180,25 +183,26 @@ for station_code in StationCode:
     tx_status[station_code]['bearing'] = None
     
 # set the initial robot pos
-last_robot_pos = mirror_coords([0,-7])    
+last_robot_pos = mirror_coords([-7,0])    
 
 # update the robot pos based on the transmitters
 def update_robot_pos():
+    global last_robot_pos
     ys = []
     xs = []
     weights = []
     heading = get_heading()
-    print(f"Robot heading {heading:.0f}")
+    # print(f"Robot heading {heading:.0f}")
     for station_code in tx_status['latest']:
         bearing = tx_status[station_code]['bearing']
         distance = tx_status[station_code]['distance']
         angle = (180 + heading + bearing)%360
-        print(f"{station_code} Bearing: {bearing:.0f} Distance {distance:.2f}")
-        print(f"{station_code} Heading+Bearing: {heading+bearing:.0f} Distance {distance:.2f}")
-        print(f"Robot Pos relative to {station_code} is {angle:.0f} degrees {distance:.2f}m")
+        # print(f"{station_code} Bearing: {bearing:.0f} Distance {distance:.2f}")
+        # print(f"{station_code} Heading+Bearing: {heading+bearing:.0f} Distance {distance:.2f}")
+        # print(f"Robot Pos relative to {station_code} is {angle:.0f} degrees {distance:.2f}m")
         x = station_pos_dict[station_code][0] + math.sin(angle/360*math.tau)*distance
         y = station_pos_dict[station_code][1] - math.cos(angle/360*math.tau)*distance
-        print(f"Robot at {x:.2f}, {y:.2f}")
+        # print(f"Robot at {x:.2f}, {y:.2f}")
         xs.append(x)
         ys.append(y)
         weights.append(1.0/(distance + 0.1))
@@ -208,7 +212,7 @@ def update_robot_pos():
     y = numpy.average(ys)
     xw = numpy.average(xs,weights=weights)
     yw = numpy.average(ys,weights=weights)
-    print(f"Avg Robot Position {x:.2f},{y:.2f}")
+    # print(f"Avg Robot Position {x:.2f},{y:.2f}")
     print(f"Weighted Avg Robot Position {xw:.2f},{yw:.2f}")
     last_robot_pos = [xw,yw]    
 
@@ -238,39 +242,169 @@ def signal_strength_to_distance(signal_strength):
 def set_heading(degrees, variance=1,turnfn=turn100):
     heading = get_heading()
     print(f"Current heading: {heading}   Desired heading: {degrees}")
-    diff = degrees - heading
+    diff = (180 + degrees - heading) % 360 - 180
     if math.fabs(diff) < variance:
         print("No need to correct")
         return 0
     print(f"Correcting by {diff} degrees.")    
     return turnfn(diff)
 
+def move_to_bearing(power, sleep_time, bearing):
+    print(f"move_to_bearing: power:{power:.0f} time:{sleep_time:0.2f} bearing:{bearing:.1f}")
+    scale = 1.0 - math.fabs(bearing)/90
+    if bearing > 0:
+        set_power(power, scale*power)
+    else:
+        set_power(scale*power, power)
+    R.sleep(sleep_time)
+
 def mirror(degrees):
     return degrees if zone0 else 360 - degrees
 
+def get_distance(p1, p2):
+    dx = p2[0]-p1[0]
+    dy = p2[1]-p1[1]
+    return math.sqrt(dx*dx + dy*dy)
 
-set_power(5,100)
+def get_absolute_bearing(p1, p2):    
+    dx = p2[0]-p1[0]
+    dy = p2[1]-p1[1]
+    print(f"p1:{p1}  p2:{p2}  dx:{dx} dy:{dy} (math.atan2(dx, -dy) % math.tau) * (360/math.tau):{(math.atan2(dx, -dy) % math.tau) * (360/math.tau)}")
+    return (math.atan2(dx, -dy) % math.tau) * (360/math.tau)
+
+def get_bearing(p1,p2):
+    heading = get_heading()
+    absolute_bearing = get_absolute_bearing(p1,p2)
+    relative_bearing =  (180 + absolute_bearing - heading) % 360 - 180
+    print(f" heading:{heading} abs_bearing:{absolute_bearing} rel_bearing:{relative_bearing}")
+    return relative_bearing
+
+def go_to_station(station_code):
+    sweep()
+    if not station_code in tx_status['latest']:
+        print(f"Can't see {station_code}")
+        # We can't see the station but we can estimate the direction to go based
+        # on our last known position and the location of the tower
+        bearing = get_bearing(last_robot_pos, station_pos_dict[station_code])
+        distance = get_distance(last_robot_pos, station_pos_dict[station_code])
+        strength = 0
+    else:
+        bearing = tx_status[station_code]['bearing']
+        strength = tx_status[station_code]['strength']
+        distance = tx_status[station_code]['distance']
+    print(f"Go to {station_code} - bearing {bearing:.2f}  distance - {distance:.2f}   strength - {strength:.2f}")
+    while strength < 4.2:      
+        move_to_bearing(100,0.1,bearing)
+        # move(100, 0.2 if strength < 1.5 else 0.1)
+        sweep()
+        if not station_code in tx_status['latest']:
+            print(f"Can't see {station_code}")
+            bearing = get_bearing(last_robot_pos, station_pos_dict[station_code])
+            distance = get_distance(last_robot_pos, station_pos_dict[station_code])
+            strength = 0
+        else:
+            bearing = tx_status[station_code]['bearing']
+            strength = tx_status[station_code]['strength']
+            distance = tx_status[station_code]['distance']
+        print(f"Go to {station_code} - bearing {bearing:.2f}  distance - {distance:.2f}   strength - {strength:.2f}")
+        if front_bumper():
+            print("stuck - front bumper pressed")
+            move(-100,0.35)
+            stop()
+            sweep()
+            if not station_code in tx_status['latest']:
+                print(f"Can't see {station_code}")
+                bearing = get_bearing(last_robot_pos, station_pos_dict[station_code])
+                distance = get_distance(last_robot_pos, station_pos_dict[station_code])
+                strength = 0
+            else:
+                bearing = tx_status[station_code]['bearing']
+                strength = tx_status[station_code]['strength']
+                distance = tx_status[station_code]['distance']
+            heading = get_heading()
+            set_heading(heading + bearing)
+        
+    print(f"Arrived at {station_code}")
+    return True
+
+def claim_station(station_code, next_direction):
+    print(f"Starting claim of {station_code}, next_direction={next_direction}")
+    R.radio.begin_territory_claim()
+    turn_time = 0.2
+    stop(turn_time)
+    sweep()
+    pprint(tx_status[station_code])
+    if tx_status[station_code]['strength'] is not None and tx_status[station_code]['strength'] > 20:
+        print('Moving Back')
+        turn_time += 0.20
+        move(-100, 0.20)
+    turn_time += set_heading(next_direction,turnfn=turn25)
+    turn_time += set_heading(next_direction,turnfn=turn25)
+    turn_time += set_heading(next_direction,turnfn=turn25)
+    print(f"Saved {turn_time} seconds")
+    if turn_time < 1.999:
+        stop(2 - turn_time)
+    R.radio.complete_territory_claim()
+
+
+# The very first move is hard-coded
+if zone0:
+  set_power(100,5)
+else:
+  set_power(5,100)
 R.sleep(0.45)
-move(100,2)
-stop()
-sweep()
-# stop(1.9)
+move(100,1)
 
-R.radio.begin_territory_claim()
-turn_time = set_heading(265,turnfn=turn25)
-turn_time += set_heading(265,turnfn=turn25)
-turn_time += set_heading(265,turnfn=turn25)
-print(f"Saved {turn_time} seconds")
-stop(2 - turn_time)
-R.radio.complete_territory_claim()
+stations = [
+    StationCode.OX,
+    StationCode.TS,
+    StationCode.VB,
+    StationCode.BG,
+    StationCode.PL,
+    StationCode.BE,
+    StationCode.HA,
+    StationCode.SZ,
+    StationCode.BN,
+    StationCode.SW,
+    StationCode.HV,
+    StationCode.PO,
+    StationCode.YT,
+    StationCode.FL,
+    StationCode.EY,
+    StationCode.PN,
+    StationCode.TH,
 
-sweep()
-move(100,2.95)
-stop(0.1)
-R.radio.begin_territory_claim()
-stop(1)
-sweep()
-stop(1)
-R.radio.complete_territory_claim()
+]
+
+for i in range(0,len(stations)):
+    station_code = mirror_station(stations[i])
+    next_station_code = mirror_station(stations[(i+1)%len(stations)])
+    go_to_station(station_code)
+    stop()
+    claim_station(station_code, get_absolute_bearing(last_robot_pos, station_pos_dict[next_station_code]))
 
 
+# go_to_station(mirror_station(StationCode.OX))
+# stop()
+# # stop(1.9)
+
+# claim_station(mirror_station(StationCode.OX), mirror(95))
+
+# # move(100,2)
+
+# go_to_station(mirror_station(StationCode.TS))
+# stop()
+# claim_station(mirror_station(StationCode.TS), mirror(30))
+
+# go_to_station(mirror_station(StationCode.VB))
+# stop()
+# claim_station(mirror_station(StationCode.VB), mirror(290))
+
+# go_to_station(mirror_station(StationCode.BG))
+# stop()
+# claim_station(mirror_station(StationCode.BG), mirror(290))
+
+
+# go_to_station(mirror_station(StationCode.VB))
+# stop()
+# claim_station(mirror_station(StationCode.VB), mirror(290))
