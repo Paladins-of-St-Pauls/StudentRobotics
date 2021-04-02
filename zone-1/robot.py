@@ -79,6 +79,9 @@ station_pos_dict = {
     StationCode.BN: [6.6,3]    
 }
 
+def mirror_station(station_code):
+    return station_code if zone0 else station_mirror_dict[station_code]
+
 def mirror_coords(coord):
     return coord if zone0 else [coord[0],-coord[1]]
 
@@ -245,24 +248,90 @@ def set_heading(degrees, variance=1,turnfn=turn100):
     print(f"Correcting by {diff} degrees.")    
     return turnfn(diff)
 
+def move_to_bearing(power, sleep_time, bearing):
+    scale = 1.0 - math.fabs(bearing)/90
+    if bearing > 0:
+        set_power(power, scale*power)
+    else:
+        set_power(scale*power, power)
+    R.sleep(sleep_time)
+
 def mirror(degrees):
     return degrees if zone0 else 360 - degrees
 
+def go_to_station(station_code):
+    sweep()
+    if not station_code in tx_status['latest']:
+        print(f"Can't see {station_code}")
+        return False
+    bearing = tx_status[station_code]['bearing']
+    strength = tx_status[station_code]['strength']
+    distance = tx_status[station_code]['distance']
+    print(f"Go to {station_code} - bearing {bearing:.2f}  distance - {distance:.2f}   strength - {strength:.2f}")
+    while strength < 4.2:      
+        move_to_bearing(100,0.1,bearing)
+        # move(100, 0.2 if strength < 1.5 else 0.1)
+        sweep()
+        if not station_code in tx_status['latest']:
+            print(f"Can't see {station_code}")
+            return False
+        bearing = tx_status[station_code]['bearing']
+        strength = tx_status[station_code]['strength']
+        distance = tx_status[station_code]['distance']
+        print(f"Go to {station_code} - bearing {bearing:.2f}  distance - {distance:.2f}   strength - {strength:.2f}")
+        if front_bumper():
+            print("stuck - front bumper pressed")
+            move(-100,0.35)
+            stop()
+            sweep()
+            bearing = tx_status[station_code]['bearing']
+            heading = get_heading()
+            set_heading(heading + bearing)
+        
+    print(f"Arrived at {station_code}")
+    return True
 
-set_power(5,100)
+def claim_station(station_code, next_direction):
+    R.radio.begin_territory_claim()
+    turn_time = 0.2
+    stop(turn_time)
+    sweep()
+    pprint(tx_status[station_code])
+    if tx_status[station_code]['strength'] is not None and tx_status[station_code]['strength'] > 20:
+        print('Moving Back')
+        turn_time += 0.25
+        move(-100, 0.25)
+    turn_time += set_heading(next_direction,turnfn=turn25)
+    turn_time += set_heading(next_direction,turnfn=turn25)
+    turn_time += set_heading(next_direction,turnfn=turn25)
+    print(f"Saved {turn_time} seconds")
+    if turn_time < 1.999:
+        stop(2 - turn_time)
+    R.radio.complete_territory_claim()
+
+
+if zone0:
+  set_power(100,5)
+else:
+  set_power(5,100)
+
 R.sleep(0.45)
-move(100,2)
+move(100,1)
+go_to_station(mirror_station(StationCode.OX))
 stop()
-sweep()
 # stop(1.9)
 
-R.radio.begin_territory_claim()
-turn_time = set_heading(265,turnfn=turn25)
-turn_time += set_heading(265,turnfn=turn25)
-turn_time += set_heading(265,turnfn=turn25)
-print(f"Saved {turn_time} seconds")
-stop(2 - turn_time)
-R.radio.complete_territory_claim()
+claim_station(mirror_station(StationCode.OX), mirror(95))
+
+move(100,2)
+
+go_to_station(mirror_station(StationCode.TS))
+stop()
+claim_station(mirror_station(StationCode.TS), mirror(30))
+
+go_to_station(mirror_station(StationCode.VB))
+stop()
+claim_station(mirror_station(StationCode.VB), mirror(290))
 
 sweep()
 move(100,2.95)
