@@ -242,7 +242,7 @@ def signal_strength_to_distance(signal_strength):
 def set_heading(degrees, variance=1,turnfn=turn100):
     heading = get_heading()
     print(f"Current heading: {heading}   Desired heading: {degrees}")
-    diff = degrees - heading
+    diff = (180 + degrees - heading) % 360 - 180
     if math.fabs(diff) < variance:
         print("No need to correct")
         return 0
@@ -328,6 +328,7 @@ def go_to_station(station_code):
     return True
 
 def claim_station(station_code, next_direction):
+    print(f"Starting claim of {station_code}, next_direction={next_direction}")
     R.radio.begin_territory_claim()
     turn_time = 0.2
     stop(turn_time)
@@ -354,25 +355,56 @@ else:
 R.sleep(0.45)
 move(100,1)
 
+stations = [
+    StationCode.OX,
+    StationCode.TS,
+    StationCode.VB,
+    StationCode.BG,
+    StationCode.PL,
+    StationCode.BE,
+    StationCode.HA,
+    StationCode.SZ,
+    StationCode.BN,
+    StationCode.SW,
+    StationCode.HV,
+    StationCode.PO,
+    StationCode.YT,
+    StationCode.FL,
+    StationCode.EY,
+    StationCode.PN,
+    StationCode.TH,
 
-go_to_station(mirror_station(StationCode.OX))
-stop()
-# stop(1.9)
+]
 
-claim_station(mirror_station(StationCode.OX), mirror(95))
-
-# move(100,2)
-
-go_to_station(mirror_station(StationCode.TS))
-stop()
-claim_station(mirror_station(StationCode.TS), mirror(30))
-
-go_to_station(mirror_station(StationCode.VB))
-stop()
-claim_station(mirror_station(StationCode.VB), mirror(290))
-
-go_to_station(mirror_station(StationCode.BG))
-stop()
-claim_station(mirror_station(StationCode.BG), mirror(290))
+for i in range(0,len(stations)):
+    station_code = mirror_station(stations[i])
+    next_station_code = mirror_station(stations[(i+1)%len(stations)])
+    go_to_station(station_code)
+    stop()
+    claim_station(station_code, get_absolute_bearing(last_robot_pos, station_pos_dict[next_station_code]))
 
 
+# go_to_station(mirror_station(StationCode.OX))
+# stop()
+# # stop(1.9)
+
+# claim_station(mirror_station(StationCode.OX), mirror(95))
+
+# # move(100,2)
+
+# go_to_station(mirror_station(StationCode.TS))
+# stop()
+# claim_station(mirror_station(StationCode.TS), mirror(30))
+
+# go_to_station(mirror_station(StationCode.VB))
+# stop()
+# claim_station(mirror_station(StationCode.VB), mirror(290))
+
+# go_to_station(mirror_station(StationCode.BG))
+# stop()
+# claim_station(mirror_station(StationCode.BG), mirror(290))
+
+
+# go_to_station(mirror_station(StationCode.VB))
+# stop()
+# claim_station(mirror_station(StationCode.VB), mirror(290))
