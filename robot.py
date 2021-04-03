@@ -2,10 +2,12 @@ from sr.robot import *
 import statistics
 import math
 from collections import defaultdict,deque
-import random
-import pprint
-import math
-from collections import defaultdict,deque
+import numpy
+from sklearn.metrics import r2_score
+from enum import IntEnum
+from pprint import pprint
+
+debug_active = True
 
 class LED(IntEnum):
     RIGHT_RED   = 4
@@ -68,49 +70,50 @@ station_score_dict = {
 }
         
 class MotorController:
-    def __init__(self, l_motor, r_motor) -> None:        
+    def __init__(self, robot, l_motor, r_motor) -> None:     
+        self.robot = robot   
         self.motor_left = l_motor
         self.motor_right = r_motor
 
-    def __set_motor_power(left_power, right_power) -> None:
+    def __set_motor_power(self, left_power, right_power) -> None:
         self.motor_left.power = left_power
         self.motor_right.power = right_power
 
-    def drive(power) -> None:
-        __set_motor_power(power, power)
+    def drive(self, power) -> None:
+        self.__set_motor_power(power, power)
 
-    def stop() -> None:
-        __set_motor_power(0,0)
+    def stop(self) -> None:
+        self.__set_motor_power(0,0)
 
-    def turn(degrees, power, b, c) -> float:
+    def turn(self, degrees, power, b, c) -> float:
         t = (math.fabs(degrees) - b) / c
         p = math.copysign(power,degrees)
-        print(f"TURN power[{power}] sleep[{t}]")
-        __set_motor_power(power,-power)
+        #print(f"TURN power[{power}] sleep[{t}]")
+        self.__set_motor_power(power,-power)
         self.robot.sleep(t)    
         return t    
         
 class SensorController:
     def __init__(self, robot, station_codes) -> None:
-        self.robot = robot
+        self.robot = robot        
         self.tx_status = defaultdict(dict)
         for station_code in station_codes:
             self.tx_status[station_code]['tx'] = None
             self.tx_status[station_code]['strength'] = None
             self.tx_status[station_code]['bearing'] = None
 
-    def get_distance(sensor) -> float:
+    def get_distance(self, sensor) -> float:
         return self.robot.ruggeduinos[0].analogue_read(sensor)
 
-    def set_led(led, state) -> None:
+    def set_led(self, led, state) -> None:
         self.robot.ruggeduinos[0].digital_write(led, state)
 
-    def get_compass_heading() -> float:
+    def get_compass_heading(self) -> float:
         x, _, z = self.robot.compass._compass.getValues()
         heading = math.atan2(x, z) % math.tau
         return heading * (360/math.tau)
 
-    def radio_sweep(tx_data):
+    def radio_sweep(self, tx_data):
         transmitters = self.robot.radio.sweep()
         # Keep the latest sweep code in 'latest'
         self.tx_status['latest'] = []
@@ -124,4 +127,4 @@ class SensorController:
             self.tx_status[station_code]['bearing'] = tx.bearing * 360 / math.tau
             self.tx_status[station_code]['owner'] = tx.target_info.owned_by
             self.tx_status[station_code]['distance'] = signal_strength_to_distance(tx.signal_strength)
-            print(f"[{station_code}] - bearing {tx_status[station_code]['bearing']:.2f}  distance - {tx_status[station_code]['distance']:.2f}   strength - {tx_status[station_code]['strength']:.2f}")
+            #print(f"[{station_code}] - bearing {tx_status[station_code]['bearing']:.2f}  distance - {tx_status[station_code]['distance']:.2f}   strength - {tx_status[station_code]['strength']:.2f}") if debug_active else \
