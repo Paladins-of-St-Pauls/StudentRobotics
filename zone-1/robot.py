@@ -543,6 +543,7 @@ stations = [
     StationCode.TH,
     StationCode.BG,
     StationCode.VB,
+    StationCode.BE,
     StationCode.HA,
     StationCode.SZ,
     StationCode.BN,
