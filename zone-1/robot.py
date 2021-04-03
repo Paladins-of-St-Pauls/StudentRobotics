@@ -365,6 +365,15 @@ def go_to_station_exceptions(station_code, prev_station_code):
         move(100,0.5)
         stop()
 
+    if prev_station_code == mirror_station(StationCode.BG) and station_code ==  mirror_station(StationCode.VB):
+        # Here we need to be careful of the centre wall         
+        print(f"###########{prev_station_code}------>{station_code}##############################")
+        stop()
+        rotate_to_target_bearing(mirror(180))
+        stop()
+        move(100,0.5)
+        stop()
+
 def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_time=None):
     current_heading = get_heading()
     diff_heading = diff_bearing(target_heading, current_heading)
@@ -532,7 +541,11 @@ stations = [
     StationCode.EY,
     StationCode.PN,
     StationCode.TH,
-
+    StationCode.BG,
+    StationCode.VB,
+    StationCode.HA,
+    StationCode.SZ,
+    StationCode.BN,
 ]
 
 prev_station_code = mirror_station(stations[0])
