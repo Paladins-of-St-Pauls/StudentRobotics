@@ -297,7 +297,7 @@ def move_to_bearing(power, sleep_time, bearing):
 
 
 def mirror(degrees):
-    return degrees if zone0 else 360 - degrees
+    return degrees if zone0 else (360 - degrees) % 360
 
 
 def get_distance(p1, p2):
@@ -336,8 +336,52 @@ def get_bearing_distance_strength(station_code):
         distance = tx_status[station_code]['distance']
     return bearing, distance, strength
 
+def go_to_station_exceptions(station_code, prev_station_code):
+    if prev_station_code == mirror_station(StationCode.BG) and station_code ==  mirror_station(StationCode.PL):
+        print(f"###########{prev_station_code}------>{station_code}##############################")
+        # extra careful to avoid the obstacle
+        stop()
+        rotate_to_target_bearing(mirror(134))
+        move(100,0.1)
 
-def go_to_station(station_code):
+    if prev_station_code == mirror_station(StationCode.SW) and station_code ==  mirror_station(StationCode.HV):
+        # If game time is less than a minute the direct route is blocked by a wall
+        if R.time() < 60:
+            print(f"###########{prev_station_code}------>{station_code}##############################")
+            rotate_to_target_bearing(mirror(0))
+            stop()
+            move(100,1.2)
+
+    if prev_station_code == mirror_station(StationCode.HV) and station_code ==  mirror_station(StationCode.PO):
+        # Here we need to be careful of the centre wall         
+        print(f"###########{prev_station_code}------>{station_code}##############################")
+        stop()
+        rotate_to_target_bearing(mirror(270))
+        stop()
+        move(100,0.1)
+        stop()
+        rotate_to_target_bearing(mirror(0))
+        stop()
+        move(100,0.5)
+        stop()
+
+def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_time=None):
+    current_heading = get_heading()
+    diff_heading = diff_bearing(target_heading, current_heading)
+    print(f"Rotating to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
+    while math.fabs(diff_heading) > close_enough_angle:
+        power = min(100,diff_heading * 180 / 180 + math.copysign(10,diff_heading))
+        print(f"Rotating with power {power:.0f} to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
+        set_power(power,-power)
+        R.sleep(0.04)    
+        current_heading = get_heading()
+        diff_heading = diff_bearing(target_heading, current_heading)
+        if start_claim_time and R.time() - start_claim_time > 1.95:
+            break    
+
+
+def go_to_station(station_code, prev_station_code):
+    go_to_station_exceptions(station_code, prev_station_code)
     sweep()
     bearing, distance, strength = get_bearing_distance_strength(station_code)
     print(f"Go to {station_code} - bearing {bearing:.2f}  distance - {distance:.2f}   strength - {strength:.2f}")
@@ -423,7 +467,7 @@ def claim_station(station_code, next_station_code):
     current_station_bearing = get_absolute_bearing(
         last_robot_pos, station_pos_dict[station_code])
 
-    diff_danger_angle = 40
+    diff_danger_angle = 45
     diff_station_bearing = diff_bearing(next_station_bearing, current_station_bearing)
     if math.fabs(diff_station_bearing) < diff_danger_angle:
         print(f"Difference in bearing between {station_code}({current_station_bearing:.0f}) and {next_station_code}({next_station_bearing:.0f})")
@@ -458,7 +502,6 @@ def claim_station(station_code, next_station_code):
         print(
             f"Completing claim of {station_code} at time {stop_claim_time} taking {stop_claim_time-start_claim_time}s")
         R.radio.complete_territory_claim()
-    move(100,0.05)
 
 
 # The very first move is hard-coded
@@ -492,10 +535,12 @@ stations = [
 
 ]
 
+prev_station_code = mirror_station(stations[0])
 for i in range(0, len(stations)):
     station_code = mirror_station(stations[i])
     next_station_code = mirror_station(stations[(i+1) % len(stations)])
-    go_to_station(station_code)
+    go_to_station(station_code, prev_station_code)
     stop()
 
     claim_station(station_code, next_station_code)
+    prev_station_code = station_code
