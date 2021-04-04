@@ -161,83 +161,43 @@ def mirror(degrees):
     return degrees if zone0 else 360 - degrees
 
 
-# First part by dead-reckoning
-# set_heading(mirror(143))
-# print(f"heading = {get_heading(1000)}")
-# move(75,0.5)
-# stop()
-# print(f"heading = {get_heading(1000)}")
 
-# print(f"heading before correction = {get_heading(1000)}")
-# set_heading(mirror(116))
-# print(f"heading = {get_heading(1000)}")
-# move(75,3.2)
-# stop(1.0)
-# set_heading(mirror(116))
-# R.radio.claim_territory()
-# print(f"heading = {get_heading(1000)}")
-# move(100,2.6)
-# stop(1.5)
-# set_heading(mirror(116))
-# R.radio.claim_territory()
-# print(f"heading = {get_heading(1000)}")
-# move(100,-5.5)
-# print(f"heading = {get_heading(1000)}")
-# stop(1.5)
-# set_heading(180)
-# move(50, 0.1)
-# set_heading(180)
-# move(100, 1.5)
-
-
-# sweep()
-# move(25,3.1)
-# stop()
-# set_heading(mirror(180))
 strengths = []
-
-
-print(f"Real Heading - {get_real_heading()}")
 
 for i in range(0, 100):
     set_heading(mirror(180))
     move(20, 0.3)
-    stop(0.001)
+    stop(0.3)
 
     sum_strength = 0.0
-    for j in range(0, 5):
-        sweep()
-        if StationCode.BN in tx_status['latest']:
-            strength = (tx_status[tx_status['latest'][0]]['strength'])
-        else:
-            strength = 0
-        # print(j, strength)
-        sum_strength += strength
-    avg_strength = sum_strength/50.0
-
-    strengths.append(avg_strength)
-
-    # if StationCode.BN in tx_status['latest']:
-    #     strengths.append(tx_status[tx_status['latest'][0]]['strength'])
-    # else:
-    #     strengths.append(0.0)
+    num_measurements = 5
+    for j in range(0, num_measurements):
+        transmitters = R.radio.sweep()
+        for tx in transmitters:
+            if tx.target_info.station_code == StationCode.BN:
+                sum_strength += tx.signal_strength
+    strengths.append(sum_strength/num_measurements)
 
     if front_bumper():
         break
 
-l = len(strengths)
+# Create a matching distances array, starting at 3.0, ending at 0.1
+start_pos = 3.0
+end_pos = 0.1
+num_steps = len(strengths)
+distances = [end_pos + (start_pos-end_pos) - i/float(num_steps-1)*(start_pos-end_pos) for i in range(0, num_steps)]
 
-distances = [3.0 - i/float(l)*3.0 for i in range(0, l)]
-
+# Strip off the strength=0.0 entries (no response from tower)
+# and the last entry
 first_non_zero_index = 0
-for i in range(0, l):
+for i in range(0, num_steps):
     if strengths[i] > 0.00001:
         first_non_zero_index = i
         break
+strengths = strengths[first_non_zero_index:-1]
+distances = distances[first_non_zero_index:-1]
 
-strengths = strengths[first_non_zero_index+1:-1]
-distances = distances[first_non_zero_index+1:-1]
-
+# Reverse both arrays
 strengths.reverse()
 distances.reverse()
 
