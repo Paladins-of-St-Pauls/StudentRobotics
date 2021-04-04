@@ -265,9 +265,12 @@ def sweep():
 
 
 def signal_strength_to_distance(signal_strength):
-    x = math.log10(signal_strength)
-    distance = -0.1558 * x*x*x + 0.6721 * x*x - 1.238 * x + 1.011
-    return distance if distance > 0 else 0
+    if signal_strength > 0:
+        x = 1.0 / math.sqrt(signal_strength)
+        distance = 0.9795 * x - 0.0142
+        return distance if distance > 0.0 else 0.0
+    # A big number for errors but not too big
+    return 100.0
 
 
 def set_heading(degrees, variance=1, turnfn=turn100, max_diff=None):

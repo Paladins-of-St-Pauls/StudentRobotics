@@ -68,3 +68,9 @@ This doesn't capture
     BN CLAIMED BY ZONE_1 AT 4.072s
 
 > strength > 4.2 means you can capture
+
+## Side note
+
+This commit https://github.com/srobo/competition-simulator/commit/979c4ae12b2b7c21065e5afc6ac2c1de5a072a36 
+
+Indicates that the tower beacon range has been increased to 2.5 - which matches what I saw during tests
