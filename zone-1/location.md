@@ -169,7 +169,7 @@ Which means that we can now create our signal strength to distance function:
 
 ## Calculating the robot position
 
-The bearing to each tower received by the robot is relative to the robot heading. We need an absolute bearing from the tower to the robot. So we need to add the heading to the bearing, we also want the results to be within the range -180, 180, we can achieve this with a modulo '%' function and the offset of 180
+The bearing to each tower received by the robot is the direction of the tower relative to the robot heading. We need an absolute bearing from the tower to the robot. So we need to add the heading to the bearing and 180 degrees , we also want the results to be within the range 0, 360, we can achieve this with a modulo '%' function.
 
     angle = (180 + heading + bearing) % 360
 
