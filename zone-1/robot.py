@@ -381,6 +381,8 @@ def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_t
     current_heading = get_heading()
     diff_heading = diff_bearing(target_heading, current_heading)
     print(f"Rotating to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
+    max_iterations = 15
+    iterations = 0
     while math.fabs(diff_heading) > close_enough_angle:
         power = min(100,diff_heading * 180 / 180 + math.copysign(10,diff_heading))
         print(f"Rotating with power {power:.0f} to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
@@ -388,8 +390,15 @@ def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_t
         R.sleep(0.04)    
         current_heading = get_heading()
         diff_heading = diff_bearing(target_heading, current_heading)
+        # If the claim time has elapsed break the while loop
         if start_claim_time and R.time() - start_claim_time > 1.95:
-            break    
+            print("Exiting turn early, claim time expiring")
+            break
+        # If we have done too many iterations(possibly stuck while turning) break the while loop
+        iterations += 1
+        if iterations > max_iterations:
+            print("Exiting turn early, we are probably stuck")
+            break
 
 
 def go_to_station(station_code, prev_station_code):
