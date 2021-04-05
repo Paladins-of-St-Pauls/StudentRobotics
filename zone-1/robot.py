@@ -68,7 +68,7 @@ def get_real_heading():
 def turnXX(degrees, power, b, c):
     t = (math.fabs(degrees) - b) / c
     p = math.copysign(power, degrees)
-    print(f"TURN power[{p}] sleep[{t}]")
+    # print(f"TURN power[{p}] sleep[{t}]")
     set_power(p, -p)
     R.sleep(t)
 
@@ -100,7 +100,7 @@ def turn100(degrees):
 
 
 def move(power, sleep_time):
-    print(f"MOVE power[{power}] sleep[{sleep_time}]")
+    # print(f"MOVE power[{power}] sleep[{sleep_time}]")
     set_power(power, power)
     R.sleep(sleep_time)
 
@@ -183,7 +183,7 @@ for i in range(0, 100):
 
 # Create a matching distances array, starting at 3.0, ending at 0.1
 start_pos = 3.0
-end_pos = 0.1
+end_pos = 0.08
 num_steps = len(strengths)
 distances = [end_pos + (start_pos-end_pos) - i/float(num_steps-1)*(start_pos-end_pos) for i in range(0, num_steps)]
 
@@ -204,70 +204,9 @@ distances.reverse()
 print(strengths)
 print(distances)
 
+strength2 = numpy.reciprocal(numpy.sqrt(strengths))
 
-# m1 = numpy.poly1d(numpy.polyfit(distances,strengths,1))
-# r1 = r2_score(strengths, m1(distances))
-# print(f"Poly 1 - \n{m1}  - R2 {r1}")
-# m2 = numpy.poly1d(numpy.polyfit(distances,strengths,2))
-# r2 = r2_score(strengths, m2(distances))
-# print(f"Poly 2 - \n{m2}  - R2 {r2}")
-# m3 = numpy.poly1d(numpy.polyfit(distances,strengths,3))
-# r3 = r2_score(strengths, m3(distances))
-# print(f"Poly 3 - \n{m3}  - R2 {r3}")
+m1 = numpy.poly1d(numpy.polyfit(distances,strength2,1))
+r1 = r2_score(strength2, m1(distances))
+print(f"Poly 1 - \n{m1}  - R2 {r1}")
 
-# print("LOG1")
-
-# m1 = numpy.poly1d(numpy.polyfit(numpy.log(distances),strengths,1))
-# r1 = r2_score(strengths, m1(numpy.log(distances)))
-# print(f"Poly 1 LOG1 - \n{m1}  - R2 {r1}")
-# m2 = numpy.poly1d(numpy.polyfit(numpy.log(distances),strengths,2))
-# r2 = r2_score(strengths, m2(numpy.log(distances)))
-# print(f"Poly 2 LOG1 - \n{m2}  - R2 {r2}")
-# m3 = numpy.poly1d(numpy.polyfit(numpy.log(distances),strengths,3))
-# r3 = r2_score(strengths, m3(numpy.log(distances)))
-# print(f"Poly 3 LOG1 - \n{m3}  - R2 {r3}")
-
-# m1 = numpy.poly1d(numpy.polyfit((distances),numpy.log(strengths),1))
-# r1 = r2_score(numpy.log(strengths), m1((distances)))
-# print(f"Poly 1 LOGn - \n{m1}  - R2 {r1}")
-# m2 = numpy.poly1d(numpy.polyfit((distances),numpy.log(strengths),2))
-# r2 = r2_score(numpy.log(strengths), m2((distances)))
-# print(f"Poly 2 LOGn - \n{m2}  - R2 {r2}")
-# m3 = numpy.poly1d(numpy.polyfit((distances),numpy.log(strengths),3))
-# r3 = r2_score(numpy.log(strengths), m3((distances)))
-# print(f"Poly 3 LOGn - \n{m3}  - R2 {r3}")
-
-
-# m1 = numpy.poly1d(numpy.polyfit((distances),numpy.log2(strengths),1))
-# r1 = r2_score(numpy.log2(strengths), m1((distances)))
-# print(f"Poly 1 LOG2 - \n{m1}  - R2 {r1}")
-
-
-# m1 = numpy.poly1d(numpy.polyfit((distances),numpy.log1p(strengths),1))
-# r1 = r2_score(numpy.log1p(strengths), m1((distances)))
-# print(f"Poly 1 log1p - \n{m1}  - R2 {r1}")
-
-# m1 = numpy.poly1d(numpy.polyfit((distances),numpy.log10(strengths),1))
-# r1 = r2_score(numpy.log10(strengths), m1((distances)))
-# print(f"Poly 1 LOG10 - \n{m1}  - R2 {r1}")
-# m2 = numpy.poly1d(numpy.polyfit((distances),numpy.log10(strengths),2))
-# r2 = r2_score(numpy.log10(strengths), m2((distances)))
-# print(f"Poly 2 LOG10 - \n{m2}  - R2 {r2}")
-# m3 = numpy.poly1d(numpy.polyfit((distances),numpy.log10(strengths),3))
-# r3 = r2_score(numpy.log10(strengths), m3((distances)))
-# print(f"Poly 3 LOG10 - \n{m3}  - R2 {r3}")
-
-m1 = numpy.poly1d(numpy.polyfit(numpy.log10(strengths), (distances), 1))
-r1 = r2_score(distances, m1((numpy.log10(strengths))))
-print(f"Poly 3 LOG10r - \n{m1}  - R2 {r1}")
-
-m2 = numpy.poly1d(numpy.polyfit(numpy.log10(strengths), (distances), 2))
-r2 = r2_score(distances, m2((numpy.log10(strengths))))
-print(f"Poly 3 LOG10r - \n{m2}  - R2 {r2}")
-
-m3 = numpy.poly1d(numpy.polyfit(numpy.log10(strengths), (distances), 3))
-r3 = r2_score(distances, m3((numpy.log10(strengths))))
-print(f"Poly 3 LOG10r - \n{m3}  - R2 {r3}")
-# print(dist_fl)
-# print(dist_fr)
-# print(dist_l)
