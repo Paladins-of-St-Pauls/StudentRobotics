@@ -525,13 +525,19 @@ def claim_station(station_code, next_station_code):
         R.radio.complete_territory_claim()
 
 
+
+set_power(32,100)
+while True:
+    sweep()
+    R.sleep(.2)
+
 # The very first move is hard-coded
-if zone0:
-    set_power(100, 5)
-else:
-    set_power(5, 100)
-R.sleep(0.45)
-move(100, 1)
+# if zone0:
+#     set_power(100, 5)
+# else:
+#     set_power(5, 100)
+# R.sleep(0.45)
+# move(100, 1)
 
 stations = [
     StationCode.OX,
@@ -561,12 +567,12 @@ stations = [
     StationCode.BN,
 ]
 
-prev_station_code = mirror_station(stations[0])
-for i in range(0, len(stations)):
-    station_code = mirror_station(stations[i])
-    next_station_code = mirror_station(stations[(i+1) % len(stations)])
-    go_to_station(station_code, prev_station_code)
-    stop()
+# prev_station_code = mirror_station(stations[0])
+# for i in range(0, len(stations)):
+#     station_code = mirror_station(stations[i])
+#     next_station_code = mirror_station(stations[(i+1) % len(stations)])
+#     go_to_station(station_code, prev_station_code)
+#     stop()
 
-    claim_station(station_code, next_station_code)
-    prev_station_code = station_code
+#     claim_station(station_code, next_station_code)
+#     prev_station_code = station_code

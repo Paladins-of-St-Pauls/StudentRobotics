@@ -5,11 +5,11 @@ WorldInfo {
 }
 Viewpoint {
   # the combined rotation of 0, -1, 0, 1.5708 & -1, 0, 0, 1
-  orientation -0.43231 -0.79134 -0.43231 1.80272
+  #orientation -0.43231 -0.79134 -0.43231 1.80272
   position -11.5 17.6 0
   # top view:
-  #orientation -0.57735 -0.57735 -0.57735 2.09440
-  #position 0 20.5 0
+  orientation -0.57735 -0.57735 -0.57735 2.09440
+  position 0 20.5 0
   near 0.1
 }
 TexturedBackgroundLight {
@@ -32,8 +32,8 @@ DEF ROBOT-0 SRRobot {
   controllerArgs "0"
 }
 DEF ROBOT-1 SRRobot {
-  translation 0 0 7
-  rotation 0 1 0 0
+  translation 0 0 4.6
+  rotation 0 1 0 -1.5708
   controller "sr_controller"
   model "Robot1"
   flagColour 1 1 0
@@ -543,12 +543,12 @@ Transform {
           geometry IndexedFaceSet {
             coord Coordinate {
               point [
-                3.8 0 1
-                5.425 0 2.25
-                5.425 0.3 2.25
-                3.8 0.3 1
-                5.425 0.3 1
-                5.425 0 1
+                -3.8 0 1
+                -5.425 0 2.25
+                -5.425 0.3 2.25
+                -3.8 0.3 1
+                -5.425 0.3 1
+                -5.425 0 1
               ]
             }
             coordIndex [
@@ -734,7 +734,7 @@ Transform {
       name "West Moving Wall"
     }
     DEF east_moving_wall Solid {
-      translation 5.5 0.15 -0.25
+      translation -5.5 0.15 -0.25
       children [
         DEF SHAPE Shape {
           appearance PBRAppearance {
@@ -760,7 +760,7 @@ Transform {
             metalness 0
           }
           geometry Box {
-            size 7 0.3 0.15
+            size 1 0.3 0.15
           }
         }
       ]
