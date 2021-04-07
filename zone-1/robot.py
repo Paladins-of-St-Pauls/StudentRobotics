@@ -283,8 +283,7 @@ def set_heading(degrees, variance=1, turnfn=turn100, max_diff=None):
 
 
 def move_to_bearing(power, sleep_time, bearing):
-    print(
-        f"move_to_bearing: power:{power:.0f} time:{sleep_time:0.2f} bearing:{bearing:.1f}")
+    print(f"move_to_bearing: power:{power:.0f} time:{sleep_time:0.2f} bearing:{bearing:.1f}")
     scale = 1.0 - math.fabs(bearing)/90
     if bearing > 0:
         set_power(power, scale*power)
@@ -375,13 +374,26 @@ def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_t
     current_heading = get_heading()
     diff_heading = diff_bearing(target_heading, current_heading)
     print(f"Rotating to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
-    max_iterations = 15
+    max_iterations = 50
     iterations = 0
-    while math.fabs(diff_heading) > close_enough_angle:
-        power = min(100,diff_heading * 180 / 180 + math.copysign(10,diff_heading))
+    slow_down_angle = 60
+    # First time - give it a kick with 100% power
+    if math.fabs(diff_heading) > 15:
+        power = math.copysign(100,diff_heading)
         print(f"Rotating with power {power:.0f} to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
         set_power(power,-power)
-        R.sleep(0.04)    
+        R.sleep(0.05)           
+    current_heading = get_heading()
+    diff_heading = diff_bearing(target_heading, current_heading)
+    while math.fabs(diff_heading) > close_enough_angle:
+        if math.fabs(diff_heading > slow_down_angle):
+            power = math.copysign(100,diff_heading)
+        else: 
+            stop()
+            power = math.copysign(min(100,(math.fabs(diff_heading) * 90 / slow_down_angle) + 10),diff_heading)
+        print(f"Rotating with power {power:.0f} to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
+        set_power(power,-power)
+        R.sleep(0.03)    
         current_heading = get_heading()
         diff_heading = diff_bearing(target_heading, current_heading)
         # If the claim time has elapsed break the while loop
@@ -393,6 +405,7 @@ def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_t
         if iterations > max_iterations:
             print("Exiting turn early, we are probably stuck")
             break
+    print(f"                                                                       - current heading {current_heading:.0f}")
 
 
 def go_to_station(station_code, prev_station_code):
@@ -404,8 +417,7 @@ def go_to_station(station_code, prev_station_code):
         move_to_bearing(100, 0.1, bearing)
         # move(100, 0.2 if strength < 1.5 else 0.1)
         sweep()
-        bearing, distance, strength = get_bearing_distance_strength(
-            station_code)
+        bearing, distance, strength = get_bearing_distance_strength(station_code)
         print(
             f"Go to {station_code} - bearing {bearing:.2f}  distance - {distance:.2f}   strength - {strength:.2f}")
         if front_bumper() or not_moving():
@@ -413,11 +425,10 @@ def go_to_station(station_code, prev_station_code):
                 print("stuck - front bumper pressed")
             else:
                 print("stuck - not moving")
-            move(-100, 0.35)
+            move(-100, 0.30)
             stop()
             sweep()
-            bearing, distance, strength = get_bearing_distance_strength(
-                station_code)
+            bearing, distance, strength = get_bearing_distance_strength(station_code)
             heading = get_heading()
             set_heading(heading + bearing)
 
@@ -447,12 +458,17 @@ def isunclaimed(station_code):
 def diff_bearing(a, b):
     return (180 + a - b) % 360 - 180
 
+def diff_heading_fn(a, b):
+    return (a - b) % 360
+
+def add_bearing(a, b):
+    return (180 + a + b) % 360 - 180    
+
 def claim_station(station_code, next_station_code):
     # It looks like you cannot take more than 2.x seconds claiming
     start_claim_time = R.time()
     if not ismine(station_code):
-        print(
-            f"Starting claim of {station_code}, next_station_code={next_station_code} at time {start_claim_time}")
+        print(f"Starting claim of {station_code}, next_station_code={next_station_code} at time {start_claim_time}")
         R.radio.begin_territory_claim()
 
     # Stop and sweep - allow the stop to stabilise our position before we sweep
@@ -465,7 +481,7 @@ def claim_station(station_code, next_station_code):
     while distance < target_distance:
         target_diff =  target_distance - distance
         print(f'Moving Back to {target_distance}, {target_diff:.2f} to go - wait time {R.time()-start_claim_time}')
-        move(-10-(target_diff*70), 0.1)
+        move(-10-(target_diff*120), 0.1)
         sweep()
         bearing, distance, strength = get_bearing_distance_strength(station_code)
         if R.time() - start_claim_time > 1.95:
@@ -475,34 +491,36 @@ def claim_station(station_code, next_station_code):
     # Start to turn towards the next station, also check where the current station is.
     # If the current and the next are in the same general direction, then turn a bit more 
     # so that we can get around the current station
-    next_station_bearing = get_absolute_bearing(
-        last_robot_pos, station_pos_dict[next_station_code])
+    next_station_bearing = get_absolute_bearing(last_robot_pos, station_pos_dict[next_station_code])
     target_heading = next_station_bearing
 
-    current_station_bearing = get_absolute_bearing(
-        last_robot_pos, station_pos_dict[station_code])
+    current_station_bearing = get_absolute_bearing(last_robot_pos, station_pos_dict[station_code])
 
     diff_danger_angle = 45
     diff_station_bearing = diff_bearing(next_station_bearing, current_station_bearing)
     if math.fabs(diff_station_bearing) < diff_danger_angle:
         print(f"Difference in bearing between {station_code}({current_station_bearing:.0f}) and {next_station_code}({next_station_bearing:.0f})")
-        target_heading += math.copysign(diff_danger_angle,diff_station_bearing)
+        target_heading = add_bearing(target_heading,math.copysign(diff_danger_angle,diff_station_bearing))
 
     close_enough_angle = 4
     current_heading = get_heading()
     diff_heading = diff_bearing(target_heading, current_heading)
     print(f"Rotating to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
-    while math.fabs(diff_heading) > close_enough_angle:
-        power = min(100,diff_heading * 180 / 180 + math.copysign(10,diff_heading))
-        print(f"Rotating with power {power:.0f} to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
-        set_power(power,-power)
-        R.sleep(0.05)    
-        current_heading = get_heading()
-        diff_heading = diff_bearing(target_heading, current_heading)
-        if R.time() - start_claim_time > 1.95:
-            break
+    rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_time=start_claim_time) 
+    # while math.fabs(diff_heading) > close_enough_angle:
+    #     power = min(100,diff_heading * 180 / 180 + math.copysign(10,diff_heading))
+    #     print(f"Rotating with power {power:.0f} to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
+    #     set_power(power,-power)
+    #     R.sleep(0.05)    
+    #     current_heading = get_heading()
+    #     diff_heading = diff_bearing(target_heading, current_heading)
+    #     if R.time() - start_claim_time > 1.95:
+    #         break
     stop()
     print(f"Current Heading {get_heading():.0f}")
+    current_time_taken = R.time() - start_claim_time
+    if current_time_taken < 1.95:
+        rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_time=start_claim_time) 
 
     # set_heading(next_station_bearing, turnfn=turn50)
 
