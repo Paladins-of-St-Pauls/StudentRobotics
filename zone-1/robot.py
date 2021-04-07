@@ -135,12 +135,6 @@ def get_heading(n=5):
     return heading/n * (360/math.tau)
 
 
-def get_real_heading():
-    x, _, z = R.compass._compass.getValues()
-    heading = math.atan2(x, z) % math.tau
-    return heading * (360/math.tau)
-
-
 def turnXX(degrees, power, b, c):
     t = (math.fabs(degrees) - b) / c
     p = math.copysign(power, degrees)
