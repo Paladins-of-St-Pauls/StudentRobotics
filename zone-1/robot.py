@@ -1,9 +1,7 @@
 from sr.robot import *
-import statistics
 import math
 from collections import defaultdict, deque
 import numpy
-from sklearn.metrics import r2_score
 from enum import IntEnum
 from pprint import pprint
 
@@ -195,9 +193,8 @@ last_robot_pos = mirror_coords([-7, 0])
 last_robot_pos_list = deque(maxlen=3)
 last_robot_pos_list.append(0.0)
 
+
 # update the robot pos based on the transmitters
-
-
 def update_robot_pos():
     global last_robot_pos
     ys = []
@@ -283,12 +280,13 @@ def set_heading(degrees, variance=1, turnfn=turn100, max_diff=None):
 
 
 def move_to_bearing(power, sleep_time, bearing):
-    print(f"move_to_bearing: power:{power:.0f} time:{sleep_time:0.2f} bearing:{bearing:.1f}")
     scale = 1.0 - math.fabs(bearing)/90
     if bearing > 0:
         set_power(power, scale*power)
+        print(f"move_to_bearing: power:{power:.0f},{scale*power:.0f} time:{sleep_time:0.2f} bearing:{bearing:.1f}")
     else:
         set_power(scale*power, power)
+        print(f"move_to_bearing: power:{power:.0f},{scale * power:.0f} time:{sleep_time:0.2f} bearing:{bearing:.1f}")
     R.sleep(sleep_time)
 
 
@@ -332,56 +330,70 @@ def get_bearing_distance_strength(station_code):
         distance = tx_status[station_code]['distance']
     return bearing, distance, strength
 
+
 def go_to_station_exceptions(station_code, prev_station_code):
-    if prev_station_code == mirror_station(StationCode.BG) and station_code ==  mirror_station(StationCode.PL):
+    def matches_station(prev, current):
+        return prev_station_code == mirror_station(prev) and station_code == mirror_station(current)
+
+    if matches_station(StationCode.BG, StationCode.PL):
         print(f"###########{prev_station_code}------>{station_code}##############################")
         # extra careful to avoid the obstacle
+        go_to_waypoint(mirror_coords([-3.4, 0.65]))
         stop()
-        rotate_to_target_bearing(mirror(134))
-        move(100,0.1)
 
-    if prev_station_code == mirror_station(StationCode.SW) and station_code ==  mirror_station(StationCode.HV):
+    if matches_station(StationCode.SW, StationCode.HV):
         # If game time is less than a minute the direct route is blocked by a wall
         if R.time() < 60:
             print(f"###########{prev_station_code}------>{station_code}##############################")
-            rotate_to_target_bearing(mirror(0))
+            go_to_waypoint(mirror_coords([3.1, 1.1]))
             stop()
-            move(100,1.2)
 
-    if prev_station_code == mirror_station(StationCode.HV) and station_code ==  mirror_station(StationCode.PO):
-        # Here we need to be careful of the centre wall         
+    if matches_station(StationCode.TH, StationCode.YT):
+        # If game time is less than a minute the direct route is blocked by a wall
         print(f"###########{prev_station_code}------>{station_code}##############################")
-        stop()
-        rotate_to_target_bearing(mirror(270))
-        stop()
-        move(100,0.1)
-        stop()
-        rotate_to_target_bearing(mirror(0))
-        stop()
-        move(100,0.5)
-        stop()
+        go_to_waypoint(mirror_coords([3.8, -2.2]))
 
-    if prev_station_code == mirror_station(StationCode.BG) and station_code ==  mirror_station(StationCode.VB):
-        # Here we need to be careful of the centre wall         
+    if matches_station(StationCode.HV, StationCode.PO):
         print(f"###########{prev_station_code}------>{station_code}##############################")
-        stop()
-        rotate_to_target_bearing(mirror(180))
-        stop()
-        move(100,0.5)
-        stop()
+        # Here we need to be careful of the centre wall
+        # Hug around the node
+        for i in range(0,10):
+            set_power(30, 100)
+            R.sleep(0.1)
+            sweep()
+            if last_robot_pos[1] < 0.2:
+                break
+
+    if matches_station(StationCode.BG, StationCode.VB):
+        print(f"###########{prev_station_code}------>{station_code}##############################")
+        # Here we need to be careful of the centre wall
+        # Hug around the node
+        for i in range(0,10):
+            set_power(30, 100)
+            R.sleep(0.1)
+            sweep()
+            if last_robot_pos[1] > -0.2:
+                break
+
 
 def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_time=None):
     current_heading = get_heading()
     diff_heading = diff_bearing(target_heading, current_heading)
-    print(f"Rotating to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
+    max_turn = 90
+    if diff_heading > max_turn:
+        target_heading = add_bearing(current_heading, max_turn)
+    elif diff_heading < -max_turn:
+        target_heading = add_bearing(current_heading, -max_turn)
+
+    print(f"Rotating {diff_heading:.0f} to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
     max_iterations = 50
     iterations = 0
     slow_down_angle = 60
     # First time - give it a kick with 100% power
     if math.fabs(diff_heading) > 15:
-        power = math.copysign(100,diff_heading)
+        power = math.copysign(100, diff_heading)
         print(f"Rotating with power {power:.0f} to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
-        set_power(power,-power)
+        set_power(power, -power)
         R.sleep(0.05)           
     current_heading = get_heading()
     diff_heading = diff_bearing(target_heading, current_heading)
@@ -391,13 +403,13 @@ def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_t
         else: 
             stop()
             power = math.copysign(min(100,(math.fabs(diff_heading) * 90 / slow_down_angle) + 10),diff_heading)
-        print(f"Rotating with power {power:.0f} to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
-        set_power(power,-power)
+        print(f"Rotating {diff_heading:.0f} with power {power:.0f} to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
+        set_power(power, -power)
         R.sleep(0.03)    
         current_heading = get_heading()
         diff_heading = diff_bearing(target_heading, current_heading)
         # If the claim time has elapsed break the while loop
-        if start_claim_time and R.time() - start_claim_time > 1.95:
+        if start_claim_time and R.time() - start_claim_time > 1.99:
             print("Exiting turn early, claim time expiring")
             break
         # If we have done too many iterations(possibly stuck while turning) break the while loop
@@ -407,6 +419,33 @@ def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_t
             break
     print(f"                                                                       - current heading {current_heading:.0f}")
 
+def go_to_waypoint(point):
+    bearing = get_bearing(last_robot_pos, point)
+    distance = get_distance(last_robot_pos, point)
+    print(f"GOTO {point}  distance: {distance:.2f} bearing: {bearing:.0f}")
+    while distance > 0.1:
+        power = 100 if distance > 1.1 else 100 * distance + 10
+        move_to_bearing(power, 0.1, bearing)
+        sweep()
+        bearing = get_bearing(last_robot_pos, point)
+        distance = get_distance(last_robot_pos, point)
+        print(f"GOTO {point}  distance: {distance:.2f} bearing: {bearing:.0f}")
+        if front_bumper() or not_moving():
+            if front_bumper():
+                print("stuck - front bumper pressed")
+            else:
+                print("stuck - not moving")
+            if distance < 0.5:
+                # We are probably close enough to the waypoint to
+                # continue
+                print(f"Continuing anyway, we ar {distance} from {point}")
+                break
+            move(-100, 0.30)
+            set_power(0, -100)
+            stop(0.1)
+            sweep()
+            bearing = get_bearing(last_robot_pos, point)
+            distance = get_distance(last_robot_pos, point)
 
 def go_to_station(station_code, prev_station_code):
     go_to_station_exceptions(station_code, prev_station_code)
@@ -481,48 +520,47 @@ def claim_station(station_code, next_station_code):
     while distance < target_distance:
         target_diff =  target_distance - distance
         print(f'Moving Back to {target_distance}, {target_diff:.2f} to go - wait time {R.time()-start_claim_time}')
-        move(-10-(target_diff*120), 0.1)
+        move(-10-(target_diff*150), 0.1)
         sweep()
         bearing, distance, strength = get_bearing_distance_strength(station_code)
         if R.time() - start_claim_time > 1.95:
             break        
     stop()
 
-    # Start to turn towards the next station, also check where the current station is.
-    # If the current and the next are in the same general direction, then turn a bit more 
-    # so that we can get around the current station
+    # Start to turn towards the next station, But turn at 90 degrees so that we a ready to drive off
+    # to the next station without hitting the current one
     next_station_bearing = get_absolute_bearing(last_robot_pos, station_pos_dict[next_station_code])
-    target_heading = next_station_bearing
-
     current_station_bearing = get_absolute_bearing(last_robot_pos, station_pos_dict[station_code])
-
-    diff_danger_angle = 45
     diff_station_bearing = diff_bearing(next_station_bearing, current_station_bearing)
-    if math.fabs(diff_station_bearing) < diff_danger_angle:
-        print(f"Difference in bearing between {station_code}({current_station_bearing:.0f}) and {next_station_code}({next_station_bearing:.0f})")
-        target_heading = add_bearing(target_heading,math.copysign(diff_danger_angle,diff_station_bearing))
-
-    close_enough_angle = 4
+    print(f"Difference {diff_station_bearing:.0f} in bearing between {station_code}({current_station_bearing:.0f}) and {next_station_code}({next_station_bearing:.0f})")
+    if diff_station_bearing > 0:
+        target_heading = add_bearing(current_station_bearing, 90)
+    else:
+        target_heading = add_bearing(current_station_bearing, -90)
     current_heading = get_heading()
-    diff_heading = diff_bearing(target_heading, current_heading)
     print(f"Rotating to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
-    rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_time=start_claim_time) 
-    # while math.fabs(diff_heading) > close_enough_angle:
-    #     power = min(100,diff_heading * 180 / 180 + math.copysign(10,diff_heading))
-    #     print(f"Rotating with power {power:.0f} to target heading {target_heading:.0f} - current heading {current_heading:.0f}")
-    #     set_power(power,-power)
-    #     R.sleep(0.05)    
-    #     current_heading = get_heading()
-    #     diff_heading = diff_bearing(target_heading, current_heading)
-    #     if R.time() - start_claim_time > 1.95:
-    #         break
-    stop()
+    rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_time=start_claim_time)
+    sweep()
+
+    # If we still have time start rotating around the tower, but only
+    # for certain towers
+    current_time_taken = R.time() - start_claim_time
+    if station_code in (mirror_station(StationCode.BN),
+                        mirror_station(StationCode.BE),
+                        mirror_station(StationCode.VB),
+                        mirror_station(StationCode.BG),
+                        mirror_station(StationCode.PN),
+                        mirror_station(StationCode.YL),
+                        ):
+        max_loops = 4
+        while current_time_taken < 1.999 and max_loops > 0:
+            set_power(25, 100)
+            R.sleep(0.05)
+            current_time_taken = R.time() - start_claim_time
+            max_loops = max_loops - 1
+
     print(f"Current Heading {get_heading():.0f}")
     current_time_taken = R.time() - start_claim_time
-    if current_time_taken < 1.95:
-        rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_time=start_claim_time) 
-
-    # set_heading(next_station_bearing, turnfn=turn50)
 
     if not ismine(station_code):
         current_time_taken = R.time() - start_claim_time
@@ -582,3 +620,8 @@ for i in range(0, len(stations)):
 
     claim_station(station_code, next_station_code)
     prev_station_code = station_code
+
+
+go_to_waypoint(mirror_coords([7, 0]))
+set_power(100,30)
+R.sleep(1)
