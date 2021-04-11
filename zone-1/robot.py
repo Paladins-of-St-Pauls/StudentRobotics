@@ -81,6 +81,10 @@ station_pos_dict = {
 }
 
 
+
+
+
+
 def mirror_station(station_code):
     return station_code if zone0 else station_mirror_dict[station_code]
 
@@ -410,6 +414,22 @@ def go_to_station_exceptions(station_code, prev_station_code):
             stop()
             move(100,0.75)  
 
+    if prev_station_code == mirror_station(StationCode.PN) and station_code ==  mirror_station(StationCode.EY):
+        # Here the choice to get the TH/SF outer stations is dependant on whether the wall has dropped before we get to it - if we are ahead by more tan     
+        if R.time() > 60:
+            print("Getting outer station")
+            if zone0:
+                go_to_station (StationCode.TH, StationCode.PN)
+                claim_station (StationCode.TH, StationCode.PN)
+                go_to_station (StationCode.BG, StationCode.TH)
+                claim_station (StationCode.BG, StationCode.TH)
+            else:
+                go_to_station (StationCode.SF, StationCode.YL)
+                claim_station (StationCode.SF, StationCode.YL)
+                go_to_station (StationCode.HV, StationCode.SF)
+                claim_station (StationCode.HV, StationCode.SF)
+
+            
 
 
 def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_time=None):
@@ -552,13 +572,25 @@ def claim_station(station_code, next_station_code):
 
 
 # The very first move is hard-coded
-#R.sleep(10)
+
+
 if zone0:
     set_power(100, 5)
 else:
     set_power(5, 100)
 R.sleep(0.45)
 move(100, 1)
+
+#if zone0:
+#    set_power(100, 5)
+#    R.sleep(0.45)
+#    move(100,1)
+#else:
+#    R.sleep(60)
+#    move (100, 2.5)
+#    stop()
+#    go_to_station (StationCode.HV, StationCode.HV)
+#    claim_station (StationCode.HV, StationCode.HV)
 
 stations = [
     StationCode.OX,
@@ -572,8 +604,8 @@ stations = [
     StationCode.TS,
     StationCode.BG,
     StationCode.PN,
-    StationCode.TH,
-    StationCode.PN,
+#    StationCode.TH,
+#    StationCode.BG,
     StationCode.EY,
     StationCode.YT,
     StationCode.FL,
@@ -587,6 +619,7 @@ stations = [
     StationCode.BN,
     StationCode.SF,
     StationCode.SW,
+    StationCode.HV,
     StationCode.SZ,
     StationCode.BE,
     StationCode.PL,
