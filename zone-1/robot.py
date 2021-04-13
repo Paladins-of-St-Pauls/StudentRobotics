@@ -78,6 +78,27 @@ station_pos_dict = {
     StationCode.BN: [6.6, 3]
 }
 
+station_depends_dict = {
+    StationCode.OX: [],
+    StationCode.TS: [StationCode.OX],
+    StationCode.VB: [StationCode.OX, StationCode.BG, StationCode.EY],
+    StationCode.BG: [],
+    StationCode.PN: [],
+    StationCode.TH: [StationCode.PN],
+    StationCode.EY: [StationCode.PN, StationCode.VB],
+    StationCode.PL: [StationCode.VB, StationCode.SZ],
+    StationCode.BE: [StationCode.VB, StationCode.SZ],
+    StationCode.HA: [StationCode.BE],
+    StationCode.YT: [StationCode.YT],
+    StationCode.FL: [StationCode.EY, StationCode.PO],
+    StationCode.SZ: [StationCode.BE, StationCode.PL, StationCode.PO],
+    StationCode.PO: [StationCode.FL, StationCode.SZ],
+    StationCode.SW: [StationCode.BN],
+    StationCode.BN: [StationCode.SZ],
+    StationCode.HV: [StationCode.SZ],
+    StationCode.YL: [StationCode.PO],
+    StationCode.SF: [StationCode.YL]
+}
 
 def mirror_station(station_code):
     return station_code if zone0 else station_mirror_dict[station_code]
@@ -330,6 +351,27 @@ def get_bearing_distance_strength(station_code):
         distance = tx_status[station_code]['distance']
     return bearing, distance, strength
 
+last_station_check_time = 0.0
+stations_visited = []
+def get_lost_stations():
+    lost_stations = []
+    for station in stations_visited:
+        if not ismine(station):
+            lost_stations.append(station)
+    return lost_stations
+
+def check_past_stations():
+    # Only check every 1 sec of simulation time
+    global last_station_check_time
+    current_time = R.time()
+    if current_time - last_station_check_time > 0.5:
+        last_station_check_time = current_time
+        lost_stations = get_lost_stations()
+        if lost_stations:
+            # We want to reclaim any lost stations. Use the dependencies to find
+            # the station to attempt to recapture first
+            pass
+
 
 def go_to_station_exceptions(station_code, prev_station_code):
     def matches_station(prev, current):
@@ -499,6 +541,7 @@ def go_to_station(station_code, prev_station_code):
             bearing, distance, strength = get_bearing_distance_strength(station_code)
             heading = get_heading()
             set_heading(heading + bearing)
+        check_past_stations()
 
     print(f"Arrived at {station_code}")
     return True
@@ -648,6 +691,7 @@ for i in range(0, len(stations)):
     stop()
 
     claim_station(station_code, next_station_code)
+    stations_visited.append(station_code)
     prev_station_code = station_code
 
 
