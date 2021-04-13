@@ -348,27 +348,56 @@ def go_to_station_exceptions(station_code, prev_station_code):
             go_to_waypoint(mirror_coords([3.1, 1.1]))
             stop()
 
-    if matches_station(StationCode.TH, StationCode.YT):
-        # If game time is less than a minute the direct route is blocked by a wall
+    if matches_station(StationCode.SZ, StationCode.BN):
         print(f"###########{prev_station_code}------>{station_code}##############################")
-        go_to_waypoint(mirror_coords([3.8, -2.2]))
+        go_to_waypoint(mirror_coords([2.4, 1.7]), exit_distance=0.5)
+
+    if matches_station(StationCode.VB, StationCode.BG):
+        print(f"###########{prev_station_code}------>{station_code}##############################")
+        go_to_waypoint(mirror_coords([-3.6, 0.8]), exit_distance=0.5)
+
+    if matches_station(StationCode.OX, StationCode.TS):
+        print(f"###########{prev_station_code}------>{station_code}##############################")
+        go_to_waypoint(mirror_coords([-4.7, 3.0]), exit_distance=0.5)
+
+    if matches_station(StationCode.SF, StationCode.YT):
+        print(f"###########{prev_station_code}------>{station_code}##############################")
+        go_to_waypoint(mirror_coords([3.8, -2.2]), exit_distance=0.5)
+
+    if matches_station(StationCode.BE, StationCode.HA):
+        print(f"###########{prev_station_code}------>{station_code}##############################")
+        # Hug around the node until we are past it
+        # Depends which way we are facing, if we are heading east
+        if get_heading() < 180:
+            left_power = 30
+            right_power = 100
+        else:
+            left_power = 100
+            right_power = 30
+
+        for i in range(0, 10):
+            set_power(left_power, right_power)
+            R.sleep(0.1)
+            sweep()
+            if last_robot_pos[1] < 1.4:
+                break
 
     if matches_station(StationCode.HV, StationCode.PO):
         print(f"###########{prev_station_code}------>{station_code}##############################")
         # Here we need to be careful of the centre wall
         # Hug around the node
-        for i in range(0,10):
+        for i in range(0, 10):
             set_power(30, 100)
             R.sleep(0.1)
             sweep()
-            if last_robot_pos[1] < 0.2:
+            if last_robot_pos[1] < -0.10:
                 break
 
     if matches_station(StationCode.BG, StationCode.VB):
         print(f"###########{prev_station_code}------>{station_code}##############################")
         # Here we need to be careful of the centre wall
         # Hug around the node
-        for i in range(0,10):
+        for i in range(0, 10):
             set_power(30, 100)
             R.sleep(0.1)
             sweep()
@@ -419,11 +448,11 @@ def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_t
             break
     print(f"                                                                       - current heading {current_heading:.0f}")
 
-def go_to_waypoint(point):
+def go_to_waypoint(point, exit_distance=0.3):
     bearing = get_bearing(last_robot_pos, point)
     distance = get_distance(last_robot_pos, point)
     print(f"GOTO {point}  distance: {distance:.2f} bearing: {bearing:.0f}")
-    while distance > 0.1:
+    while distance > exit_distance:
         power = 100 if distance > 1.1 else 100 * distance + 10
         move_to_bearing(power, 0.1, bearing)
         sweep()
