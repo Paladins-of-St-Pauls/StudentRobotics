@@ -3,6 +3,7 @@ import math
 from collections import defaultdict, deque
 import numpy
 from enum import IntEnum
+import random
 from pprint import pprint
 
 R = Robot()
@@ -419,17 +420,48 @@ def check_past_stations():
             # the station to attempt to recapture first
             pass
 
+retake_stations=[]
+
+
 def reclaim_past_stations(stationcode):
     lost_stations = get_lost_stations()
     print(f"lost_stations is {lost_stations}")
     depends = get_station_depends(stationcode)
-    print(f"depends is {depends}")
+    print(f"depends of {stationcode} is {depends}")
     # work out the best reclaim order
     intersection = [value for value in lost_stations if value in depends]
     print(f"intersection is {intersection}")
     if intersection:
-        go_to_station(intersection[0], stationcode)
-        claim_station(intersection[0], stationcode)
+        retake_station = intersection[0]
+        retake_stations.append(retake_station)
+        # if this is the third time we have tried to retake a station, then something is wrong
+        if len(retake_stations) > 2 and retake_stations[-2] == retake_station and retake_stations[-3] == retake_station:
+            print(f"Retaking has failed {retake_stations}")
+            retake_depends = get_station_depends(retake_station)
+            if retake_depends:
+                reclaim_past_stations(retake_depends[0])
+        go_to_station(retake_station, stationcode)
+        claim_station(retake_station, stationcode)
+
+
+def avoid_centre_wall_problems(stationcode):
+    # The centre wall is only a problem if the robot and the target are on other sides
+    # of the wall within +/- 3.5 in x and +/- 0.5 in y
+    station_pos = station_pos_dict[stationcode]
+    if (station_pos[1] > 0 and last_robot_pos[1] < 0) or (station_pos[1] < 0 and last_robot_pos[1] > 0):
+        # the robot and the target are on opposite sides
+        if last_robot_pos[0] > -3.3 and last_robot_pos[0] < 3.3:
+            if last_robot_pos[1] > -0.5 and last_robot_pos[1] < 0.5:
+                # We need to add in some way points
+                waypoint1 = [math.copysign(3.7, last_robot_pos[0]), math.copysign(0.5, last_robot_pos[1])]
+                waypoint2 = [math.copysign(3.7, last_robot_pos[0]), math.copysign(0.5, -last_robot_pos[1])]
+                print(f"CENTRE WALL PROBLEM - robot_pos {last_robot_pos}  -> {stationcode} {station_pos}")
+                print(f"CENTRE WALL PROBLEM - waypoint1 {waypoint1}  -> waypoint2 {waypoint2}")
+                waypoint1_bearing = get_bearing(last_robot_pos, waypoint1)
+                set_heading(waypoint1_bearing)
+                go_to_waypoint(waypoint1, exit_distance=0.2)
+                go_to_waypoint(waypoint2, exit_distance=0.2)
+
 
 def go_to_station_exceptions(stationcode, prev_stationcode):
     def matches_station(prev, current):
@@ -570,9 +602,10 @@ def go_to_waypoint(point, exit_distance=0.3):
                 # continue
                 print(f"Continuing anyway, we ar {distance} from {point}")
                 break
-            move(-100, 0.30)
-            set_power(0, -100)
-            stop(0.1)
+            # move back with random powers -50 to -100 so we can get some random turning
+            set_power(random.randrange(-100, -50), random.randrange(-100, -50))
+            R.sleep(0.3)
+            set_heading(bearing)
             sweep()
             bearing = get_bearing(last_robot_pos, point)
             distance = get_distance(last_robot_pos, point)
@@ -595,7 +628,9 @@ def go_to_station(stationcode, prev_stationcode):
                 print("stuck - front bumper pressed")
             else:
                 print("stuck - not moving")
-            move(-100, 0.30)
+            # move back with random powers -50 to -100 so we can get some random turning
+            set_power(random.randrange(-100, -50), random.randrange(-100, -50))
+            R.sleep(0.3)
             stop()
             sweep()
             bearing, distance, strength = get_bearing_distance_strength(stationcode)
@@ -603,6 +638,7 @@ def go_to_station(stationcode, prev_stationcode):
             set_heading(heading + bearing)
         if not is_station_claimable(stationcode):
             reclaim_past_stations(stationcode)
+        avoid_centre_wall_problems(stationcode)
 
     print(f"Arrived at {stationcode}")
     return True
