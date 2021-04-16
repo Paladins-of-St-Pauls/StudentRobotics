@@ -341,6 +341,10 @@ def get_distance(p1, p2):
     return math.sqrt(dx*dx + dy*dy)
 
 
+def get_station_distance(stationcode):
+    return get_distance(last_robot_pos, station_pos_dict[stationcode])
+
+
 def get_absolute_bearing(p1, p2):
     dx = p2[0]-p1[0]
     dy = p2[1]-p1[1]
@@ -408,40 +412,79 @@ def get_lost_stations():
             lost_stations.append(station)
     return lost_stations
 
-def check_past_stations():
+
+def check_critical_stations(stationcode):
+    global retaking_stations
     # Only check every 0.5 sec of simulation time
     global last_station_check_time
+    critical_stations = [mirror_station(StationCode.BG), mirror_station(StationCode.PN),
+                         StationCode.VB, StationCode.EY, StationCode.PL, StationCode.BE,
+                         StationCode.HA, StationCode.YT, StationCode.FL]
     current_time = R.time()
-    if current_time - last_station_check_time > 0.5:
+    if not retaking_stations and current_time - last_station_check_time > 0.5:
         last_station_check_time = current_time
         lost_stations = get_lost_stations()
         if lost_stations:
-            # We want to reclaim any lost stations. Use the dependencies to find
-            # the station to attempt to recapture first
-            pass
+            # We want to reclaim any lost stations we say are critical
+            lost_stations = get_lost_stations()
+            intersection_critical = [value for value in lost_stations if value in critical_stations]
+            prevstation = stationcode
+            nextstation = stationcode
+            for i in range(0, len(intersection_critical)):
+                retake_station = intersection_critical[i]
+                retake_stations.append(retake_station)
+                if not ismine(retake_station) and is_station_claimable(retake_station):
+                    print(f"Reclaiming CRITICAL station {retake_station}")
+                    # if this is the third time we have tried to retake a station, then something is wrong
+                    if len(retake_stations) > 2 and retake_stations[-2] == retake_station and retake_stations[-3] == retake_station:
+                        print(f"Retaking has failed {retake_stations}")
+                        retake_depends = get_station_depends(retake_station)
+                        if retake_depends:
+                            reclaim_past_stations(retake_depends[0])
+                    go_to_station(retake_station, prevstation)
+                    claim_station(retake_station, nextstation)
+                    prevstation = retake_station
+                    nextstation = intersection_critical[i + 1] if i + 1 < len(intersection_critical) else stationcode
+                else:
+                    print(f"NOT reclaiming CRITICAL station {retake_station} its not claimable")
 
-retake_stations=[]
+
+
+retake_stations = []
+retaking_stations = False
 
 
 def reclaim_past_stations(stationcode):
+    global retaking_stations
+    retaking_stations = True
     lost_stations = get_lost_stations()
+
     print(f"lost_stations is {lost_stations}")
     depends = get_station_depends(stationcode)
     print(f"depends of {stationcode} is {depends}")
     # work out the best reclaim order
-    intersection = [value for value in lost_stations if value in depends]
-    print(f"intersection is {intersection}")
-    if intersection:
-        retake_station = intersection[0]
+    intersection_depends = [value for value in lost_stations if value in depends]
+    print(f"intersection is {intersection_depends}")
+    retake_station = None
+    prevstation = stationcode
+    nextstation = stationcode
+    for i in range(0, len(intersection_depends)):
+        retake_station = intersection_depends[i]
         retake_stations.append(retake_station)
-        # if this is the third time we have tried to retake a station, then something is wrong
-        if len(retake_stations) > 2 and retake_stations[-2] == retake_station and retake_stations[-3] == retake_station:
-            print(f"Retaking has failed {retake_stations}")
-            retake_depends = get_station_depends(retake_station)
-            if retake_depends:
-                reclaim_past_stations(retake_depends[0])
-        go_to_station(retake_station, stationcode)
-        claim_station(retake_station, stationcode)
+        if not ismine(retake_station) and is_station_claimable(retake_station):
+            print(f"Reclaiming Lost Dependent station {retake_station}")
+            # if this is the third time we have tried to retake a station, then something is wrong
+            if len(retake_stations) > 2 and retake_stations[-2] == retake_station and retake_stations[-3] == retake_station:
+                print(f"Retaking has failed {retake_stations}")
+                retake_depends = get_station_depends(retake_station)
+                if retake_depends:
+                    reclaim_past_stations(retake_depends[0])
+            go_to_station(retake_station, prevstation)
+            claim_station(retake_station, nextstation)
+            prevstation = retake_station
+            nextstation = intersection_depends[i+1] if i+1 < len(intersection_depends) else stationcode
+    retaking_stations = False
+
 
 
 def avoid_centre_wall_problems(stationcode):
@@ -581,12 +624,12 @@ def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_t
     print(f"                                                                       - current heading {current_heading:.0f}")
 
 
-def go_to_waypoint(point, exit_distance=0.3):
+def go_to_waypoint(point, exit_distance=0.3, slow_down_on_approach=False):
     bearing = get_bearing(last_robot_pos, point)
     distance = get_distance(last_robot_pos, point)
     print(f"GOTO {point}  distance: {distance:.2f} bearing: {bearing:.0f}")
     while distance > exit_distance:
-        power = 100 if distance > 1.1 else 100 * distance + 10
+        power = 100 if not slow_down_on_approach or distance > 1.1 else 100 * distance + 10
         move_to_bearing(power, 0.1, bearing)
         sweep()
         bearing = get_bearing(last_robot_pos, point)
@@ -773,12 +816,6 @@ stations = [
     StationCode.EY,
     StationCode.PN,
     StationCode.TH,
-    StationCode.BG,
-    StationCode.VB,
-    StationCode.BE,
-    StationCode.HA,
-    StationCode.SZ,
-    StationCode.BN,
 ]
 
 prev_station_code = mirror_station(stations[0])
@@ -791,6 +828,17 @@ for i in range(0, len(stations)):
     claim_station(station_code, next_station_code)
     stations_visited.append(station_code)
     prev_station_code = station_code
+
+
+lost_stations = sorted(get_lost_stations(), key=get_station_distance)
+while lost_stations:
+    station_code = lost_stations[0]
+    next_station_code = lost_stations[1 % len(lost_stations)]
+    go_to_station(station_code, prev_station_code)
+    stop()
+    claim_station(station_code, next_station_code)
+    prev_station_code = station_code
+    lost_stations = sorted(get_lost_stations(), key=get_station_distance)
 
 
 go_to_waypoint(mirror_coords([7, 0]))
