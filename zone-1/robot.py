@@ -525,17 +525,33 @@ def go_to_station_exceptions(stationcode, prev_stationcode):
             if last_robot_pos[1] < -0.10:
                 break
 
+    if matches_station(StationCode.BG, StationCode.EY):
+        print(f"###########{prev_stationcode}------>{stationcode}##############################")
+        # Here we need to be careful of the centre wall
+        # Hug around the node
+        for i in range(0, 10):
+            set_power(100, 20)
+            R.sleep(0.1)
+            sweep()
+            if last_robot_pos[1] < -0.10:
+                break
+
     if matches_station(StationCode.BG, StationCode.VB):
         print(f"###########{prev_stationcode}------>{stationcode}##############################")
         # Here we need to be careful of the centre wall
         # Hug around the node
         for i in range(0, 10):
-            set_power(30, 100)
+            set_power(10, 100)
             R.sleep(0.1)
             sweep()
             if last_robot_pos[1] > -0.2:
                 break
-
+    if matches_station(StationCode.BE, StationCode.HA):
+        print(f"###########{prev_stationcode}------>{stationcode}##############################")
+        go_to_waypoint(mirror_coords([0, 0.5]), exit_distance=0.2)
+    if matches_station(StationCode.HA, StationCode.BG):
+        print(f"###########{prev_stationcode}------>{stationcode}##############################")
+        go_to_waypoint(mirror_coords([-2, 2]), exit_distance=0.5)
 
 def rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_time=None):
     current_heading = get_heading()
@@ -715,22 +731,7 @@ def claim_station(stationcode, next_stationcode):
     rotate_to_target_bearing(target_heading, close_enough_angle=4, start_claim_time=start_claim_time)
     sweep()
 
-    # If we still have time start rotating around the tower, but only
-    # for certain towers
-    current_time_taken = R.time() - start_claim_time
-    if stationcode in (mirror_station(StationCode.BN),
-                       mirror_station(StationCode.BE),
-                       mirror_station(StationCode.VB),
-                       mirror_station(StationCode.BG),
-                       mirror_station(StationCode.PN),
-                       mirror_station(StationCode.YL),
-                       ):
-        max_loops = 4
-        while current_time_taken < 1.999 and max_loops > 0:
-            set_power(25, 100)
-            R.sleep(0.05)
-            current_time_taken = R.time() - start_claim_time
-            max_loops = max_loops - 1
+
 
     if not ismine(stationcode):
         current_time_taken = R.time() - start_claim_time
@@ -745,6 +746,27 @@ def claim_station(stationcode, next_stationcode):
         R.radio.complete_territory_claim()
 
 
+
+
+stations = [
+    StationCode.OX,
+    StationCode.TS,
+    StationCode.VB,
+    StationCode.PL,
+    StationCode.SZ,
+    StationCode.BE,
+    StationCode.HA,
+    StationCode.BG,
+    StationCode.EY,
+    StationCode.YT,
+    StationCode.PO,
+    StationCode.FL,
+    StationCode.PN,
+    StationCode.TH,
+]
+
+stop(2.0)
+
 # The very first move is hard-coded
 if zone0:
     set_power(100, 5)
@@ -752,34 +774,6 @@ else:
     set_power(5, 100)
 R.sleep(0.45)
 move(100, 1)
-
-stations = [
-    StationCode.OX,
-    StationCode.TS,
-    StationCode.VB,
-    StationCode.BG,
-    StationCode.PL,
-    StationCode.BE,
-    StationCode.HA,
-    StationCode.SZ,
-    StationCode.BN,
-    StationCode.SW,
-    StationCode.HV,
-    StationCode.PO,
-    StationCode.YL,
-    StationCode.SF,
-    StationCode.YT,
-    StationCode.FL,
-    StationCode.EY,
-    StationCode.PN,
-    StationCode.TH,
-    StationCode.BG,
-    StationCode.VB,
-    StationCode.BE,
-    StationCode.HA,
-    StationCode.SZ,
-    StationCode.BN,
-]
 
 prev_station_code = mirror_station(stations[0])
 for i in range(0, len(stations)):
@@ -793,6 +787,4 @@ for i in range(0, len(stations)):
     prev_station_code = station_code
 
 
-go_to_waypoint(mirror_coords([7, 0]))
-set_power(100, 30)
-R.sleep(1)
+stop()
