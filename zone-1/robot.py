@@ -81,7 +81,7 @@ station_pos_dict = {
 station_zone0_depends_dict = {
     StationCode.OX: [],
     StationCode.TS: [StationCode.OX],
-    StationCode.VB: [StationCode.OX, StationCode.BG, StationCode.EY],
+    StationCode.VB: [StationCode.BG, StationCode.OX, StationCode.EY],
     StationCode.BG: [],
     StationCode.PN: [],
     StationCode.TH: [StationCode.PN],
@@ -103,7 +103,7 @@ station_zone0_depends_dict = {
 station_zone1_depends_dict = {
     StationCode.BN: [],
     StationCode.SW: [StationCode.BN],
-    StationCode.SZ: [StationCode.BN, StationCode.HV, StationCode.PO],
+    StationCode.SZ: [StationCode.HV, StationCode.BN, StationCode.PO],
     StationCode.HV: [],
     StationCode.YL: [],
     StationCode.SF: [StationCode.YL],
@@ -292,7 +292,7 @@ def sweep():
         tx_status[stationcode]['owner'] = tx.target_info.owned_by
         tx_status[stationcode]['distance'] = signal_strength_to_distance(
             tx.signal_strength)
-        print(f"[{stationcode}] - bearing {tx_status[stationcode]['bearing']:.2f}  distance - {tx_status[stationcode]['distance']:.2f}   strength - {tx_status[stationcode]['strength']:.2f}")
+        print(f"[{stationcode}] - bearing {tx_status[stationcode]['bearing']:.2f}  distance - {tx_status[stationcode]['distance']:.2f}   strength - {tx_status[stationcode]['strength']:.2f}  ownedby {tx.target_info.owned_by}")
     update_robot_pos()
 
 
@@ -399,15 +399,16 @@ def is_station_claimable(stationcode):
         if ismine(s):
             return True
 
+    print(f"Station {stationcode} is NOT CLAIMABLE, dependencies {depends}")
+
     # We cannot claim this yet
     return False
 
-
 last_station_check_time = 0.0
-stations_visited = []
+stations_claimed = []
 def get_lost_stations():
     lost_stations = []
-    for station in stations_visited:
+    for station in stations_claimed:
         if not ismine(station):
             lost_stations.append(station)
     return lost_stations
@@ -457,6 +458,7 @@ retaking_stations = False
 def reclaim_past_stations(stationcode):
     global retaking_stations
     retaking_stations = True
+    # Lost Stations is the ones we have previously claimed, but are now no longer ours.
     lost_stations = get_lost_stations()
 
     print(f"lost_stations is {lost_stations}")
@@ -485,6 +487,16 @@ def reclaim_past_stations(stationcode):
             nextstation = intersection_depends[i+1] if i+1 < len(intersection_depends) else stationcode
     retaking_stations = False
 
+def reclaim_dependents(stationcode, nextstation):
+    print(f"Need to reclaim dependents for {stationcode}")
+    depends = get_station_depends(stationcode)
+    if depends:
+        for station in depends:
+            if is_station_claimable(station):
+                go_to_station(station, stationcode)
+                claim_station(station, stationcode)
+        go_to_station(stationcode, station)
+        claim_station(stationcode, nextstation)
 
 
 def avoid_centre_wall_problems(stationcode):
@@ -521,6 +533,20 @@ def go_to_station_exceptions(stationcode, prev_stationcode):
         if R.time() < 60:
             print(f"###########{prev_stationcode}------>{stationcode}##############################")
             go_to_waypoint(mirror_coords([3.1, 1.1]))
+            stop()
+
+    if matches_station(StationCode.BG, StationCode.OX):
+        # If game time is less than a minute the direct route is blocked by a wall
+        if R.time() < 60:
+            print(f"###########{prev_stationcode}------>{stationcode}##############################")
+            go_to_waypoint(mirror_coords([-2.5, 1.2]))
+            stop()
+
+    if matches_station(StationCode.OX, StationCode.BG):
+        # If game time is less than a minute the direct route is blocked by a wall
+        if R.time() < 60:
+            print(f"###########{prev_stationcode}------>{stationcode}##############################")
+            go_to_waypoint(mirror_coords([-2.5, 1.2]))
             stop()
 
     if matches_station(StationCode.SZ, StationCode.BN):
@@ -655,14 +681,19 @@ def go_to_waypoint(point, exit_distance=0.3, slow_down_on_approach=False):
 
 
 def go_to_station(stationcode, prev_stationcode):
+    if ismine(stationcode):
+        stop()
+        return
     go_to_station_exceptions(stationcode, prev_stationcode)
-    sweep()
     bearing, distance, strength = get_bearing_distance_strength(stationcode)
     print(f"Go to {stationcode} - bearing {bearing:.2f}  distance - {distance:.2f}   strength - {strength:.2f}")
     while strength < 4.2:
         move_to_bearing(100, 0.1, bearing)
         # move(100, 0.2 if strength < 1.5 else 0.1)
         sweep()
+        if ismine(stationcode):
+            stop()
+            return
         bearing, distance, strength = get_bearing_distance_strength(stationcode)
         print(
             f"Go to {stationcode} - bearing {bearing:.2f}  distance - {distance:.2f}   strength - {strength:.2f}")
@@ -673,14 +704,14 @@ def go_to_station(stationcode, prev_stationcode):
                 print("stuck - not moving")
             # move back with random powers -50 to -100 so we can get some random turning
             set_power(random.randrange(-100, -50), random.randrange(-100, -50))
-            R.sleep(0.3)
-            stop()
+            R.sleep(0.2)
             sweep()
+            stop()
             bearing, distance, strength = get_bearing_distance_strength(stationcode)
             heading = get_heading()
             set_heading(heading + bearing)
         if not is_station_claimable(stationcode):
-            reclaim_past_stations(stationcode)
+            reclaim_dependents(stationcode, stationcode)
         avoid_centre_wall_problems(stationcode)
 
     print(f"Arrived at {stationcode}")
@@ -721,10 +752,11 @@ def add_bearing(a, b):
 
 def claim_station(stationcode, next_stationcode):
     # It looks like you cannot take more than 2.x seconds claiming
+    if ismine(stationcode):
+        return
     start_claim_time = R.time()
-    if not ismine(stationcode):
-        print(f"Starting claim of {stationcode}, next_station_code={next_stationcode} at time {start_claim_time}")
-        R.radio.begin_territory_claim()
+    print(f"Starting claim of {stationcode}, next_station_code={next_stationcode} at time {start_claim_time}")
+    R.radio.begin_territory_claim()
 
     # Stop and sweep - allow the stop to stabilise our position before we sweep
     stop(0.2)
@@ -775,17 +807,35 @@ def claim_station(stationcode, next_stationcode):
             current_time_taken = R.time() - start_claim_time
             max_loops = max_loops - 1
 
-    if not ismine(stationcode):
-        current_time_taken = R.time() - start_claim_time
-        if current_time_taken < 1.999:
-            print(
-                f"Only took {current_time_taken} so far - Sleeping for {2-current_time_taken}... waiting for time to claim")
-            stop(2 - current_time_taken)
-
-        stop_claim_time = R.time()
+    current_time_taken = R.time() - start_claim_time
+    if current_time_taken < 1.999:
         print(
-            f"Completing claim of {stationcode} at time {stop_claim_time} taking {stop_claim_time - start_claim_time}s")
-        R.radio.complete_territory_claim()
+            f"Only took {current_time_taken} so far - Sleeping for {2-current_time_taken}... waiting for time to claim")
+        stop(2 - current_time_taken)
+
+    stop_claim_time = R.time()
+    print(
+        f"Completing claim of {stationcode} at time {stop_claim_time} taking {stop_claim_time - start_claim_time}s")
+    R.radio.complete_territory_claim()
+    sweep()
+    if ismine(stationcode):
+        stations_claimed.append(stationcode)
+    else:
+        # Check again sometimes it doesn't update in time
+        sweep()
+        if ismine(stationcode):
+            stations_claimed.append(stationcode)
+        else:
+            if is_station_claimable(stationcode):
+                R.radio.claim_territory()
+                sweep()
+                if ismine(stationcode):
+                    stations_claimed.append(stationcode)
+                else:
+                    # Somethings wrong we need to go back through the dependents
+                    reclaim_dependents(stationcode, next_stationcode)
+            else:
+                reclaim_dependents(stationcode, next_stationcode)
 
 
 # The very first move is hard-coded
@@ -816,6 +866,23 @@ stations = [
     StationCode.EY,
     StationCode.PN,
     StationCode.TH,
+    StationCode.BG,
+    StationCode.OX,
+    StationCode.TS,
+    StationCode.VB,
+    StationCode.BE,
+    StationCode.HA,
+    StationCode.SZ,
+    StationCode.PL,
+    StationCode.HV,
+    StationCode.BN,
+    StationCode.SW,
+    StationCode.HV,
+    StationCode.YL,
+    StationCode.SF,
+
+
+
 ]
 
 prev_station_code = mirror_station(stations[0])
@@ -826,7 +893,6 @@ for i in range(0, len(stations)):
     stop()
 
     claim_station(station_code, next_station_code)
-    stations_visited.append(station_code)
     prev_station_code = station_code
 
 
