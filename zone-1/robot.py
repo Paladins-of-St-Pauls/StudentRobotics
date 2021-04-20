@@ -404,99 +404,26 @@ def is_station_claimable(stationcode):
     # We cannot claim this yet
     return False
 
-last_station_check_time = 0.0
+
 stations_claimed = []
-def get_lost_stations():
-    lost_stations = []
-    for station in stations_claimed:
-        if not ismine(station):
-            lost_stations.append(station)
-    return lost_stations
 
-
-def check_critical_stations(stationcode):
-    global retaking_stations
-    # Only check every 0.5 sec of simulation time
-    global last_station_check_time
-    critical_stations = [mirror_station(StationCode.BG), mirror_station(StationCode.PN),
-                         StationCode.VB, StationCode.EY, StationCode.PL, StationCode.BE,
-                         StationCode.HA, StationCode.YT, StationCode.FL]
-    current_time = R.time()
-    if not retaking_stations and current_time - last_station_check_time > 0.5:
-        last_station_check_time = current_time
-        lost_stations = get_lost_stations()
-        if lost_stations:
-            # We want to reclaim any lost stations we say are critical
-            lost_stations = get_lost_stations()
-            intersection_critical = [value for value in lost_stations if value in critical_stations]
-            prevstation = stationcode
-            nextstation = stationcode
-            for i in range(0, len(intersection_critical)):
-                retake_station = intersection_critical[i]
-                retake_stations.append(retake_station)
-                if not ismine(retake_station) and is_station_claimable(retake_station):
-                    print(f"Reclaiming CRITICAL station {retake_station}")
-                    # if this is the third time we have tried to retake a station, then something is wrong
-                    if len(retake_stations) > 2 and retake_stations[-2] == retake_station and retake_stations[-3] == retake_station:
-                        print(f"Retaking has failed {retake_stations}")
-                        retake_depends = get_station_depends(retake_station)
-                        if retake_depends:
-                            reclaim_past_stations(retake_depends[0])
-                    go_to_station(retake_station, prevstation)
-                    claim_station(retake_station, nextstation)
-                    prevstation = retake_station
-                    nextstation = intersection_critical[i + 1] if i + 1 < len(intersection_critical) else stationcode
-                else:
-                    print(f"NOT reclaiming CRITICAL station {retake_station} its not claimable")
-
-
-
-retake_stations = []
-retaking_stations = False
-
-
-def reclaim_past_stations(stationcode):
-    global retaking_stations
-    retaking_stations = True
-    # Lost Stations is the ones we have previously claimed, but are now no longer ours.
-    lost_stations = get_lost_stations()
-
-    print(f"lost_stations is {lost_stations}")
-    depends = get_station_depends(stationcode)
-    print(f"depends of {stationcode} is {depends}")
-    # work out the best reclaim order
-    intersection_depends = [value for value in lost_stations if value in depends]
-    print(f"intersection is {intersection_depends}")
-    retake_station = None
-    prevstation = stationcode
-    nextstation = stationcode
-    for i in range(0, len(intersection_depends)):
-        retake_station = intersection_depends[i]
-        retake_stations.append(retake_station)
-        if not ismine(retake_station) and is_station_claimable(retake_station):
-            print(f"Reclaiming Lost Dependent station {retake_station}")
-            # if this is the third time we have tried to retake a station, then something is wrong
-            if len(retake_stations) > 2 and retake_stations[-2] == retake_station and retake_stations[-3] == retake_station:
-                print(f"Retaking has failed {retake_stations}")
-                retake_depends = get_station_depends(retake_station)
-                if retake_depends:
-                    reclaim_past_stations(retake_depends[0])
-            go_to_station(retake_station, prevstation)
-            claim_station(retake_station, nextstation)
-            prevstation = retake_station
-            nextstation = intersection_depends[i+1] if i+1 < len(intersection_depends) else stationcode
-    retaking_stations = False
 
 def reclaim_dependents(stationcode, nextstation):
     print(f"Need to reclaim dependents for {stationcode}")
     depends = get_station_depends(stationcode)
     if depends:
-        for station in depends:
-            if is_station_claimable(station):
-                go_to_station(station, stationcode)
-                claim_station(station, stationcode)
+        if any(is_station_claimable(s) for s in depends):
+            for station in depends:
+                if is_station_claimable(station):
+                    go_to_station(station, stationcode)
+                    claim_station(station, stationcode)
+
+        else:
+            station = depends[0]
+            reclaim_dependents(station, stationcode)
         go_to_station(stationcode, station)
         claim_station(stationcode, nextstation)
+
 
 
 def avoid_centre_wall_problems(stationcode):
@@ -810,7 +737,7 @@ def claim_station(stationcode, next_stationcode):
     if stationcode in (mirror_station(StationCode.BN),
                        mirror_station(StationCode.BE),
                        mirror_station(StationCode.VB),
-                       mirror_station(StationCode.BG),
+                       mirror_station(StationCode.HV),
                        mirror_station(StationCode.PN),
                        mirror_station(StationCode.YL),
                        ):
@@ -910,18 +837,6 @@ for i in range(0, len(stations)):
 
     claim_station(station_code, next_station_code)
     prev_station_code = station_code
-
-
-lost_stations = sorted(get_lost_stations(), key=get_station_distance)
-while lost_stations:
-    station_code = lost_stations[0]
-    next_station_code = lost_stations[1 % len(lost_stations)]
-    go_to_station(station_code, prev_station_code)
-    stop()
-    claim_station(station_code, next_station_code)
-    prev_station_code = station_code
-    lost_stations = sorted(get_lost_stations(), key=get_station_distance)
-
 
 go_to_waypoint(mirror_coords([7, 0]))
 set_power(100, 30)
