@@ -549,6 +549,20 @@ def go_to_station_exceptions(stationcode, prev_stationcode):
             go_to_waypoint(mirror_coords([-2.5, 1.2]))
             stop()
 
+    if matches_station(StationCode.BN, StationCode.SZ):
+        # If game time is less than a minute the direct route is blocked by a wall
+        if R.time() < 60:
+            print(f"###########{prev_stationcode}------>{stationcode}##############################")
+            go_to_waypoint(mirror_coords([2.5, 1.2]))
+            stop()
+
+    if matches_station(StationCode.SZ, StationCode.BN):
+        # If game time is less than a minute the direct route is blocked by a wall
+        if R.time() < 60:
+            print(f"###########{prev_stationcode}------>{stationcode}##############################")
+            go_to_waypoint(mirror_coords([2.5, 1.2]))
+            stop()
+
     if matches_station(StationCode.SZ, StationCode.BN):
         print(f"###########{prev_stationcode}------>{stationcode}##############################")
         go_to_waypoint(mirror_coords([2.4, 1.7]), exit_distance=0.5)
@@ -681,7 +695,7 @@ def go_to_waypoint(point, exit_distance=0.3, slow_down_on_approach=False):
 
 
 def go_to_station(stationcode, prev_stationcode):
-    if ismine(stationcode):
+    if ismine(stationcode) and stationcode in tx_status['latest']:
         stop()
         return
     go_to_station_exceptions(stationcode, prev_stationcode)
@@ -691,7 +705,7 @@ def go_to_station(stationcode, prev_stationcode):
         move_to_bearing(100, 0.1, bearing)
         # move(100, 0.2 if strength < 1.5 else 0.1)
         sweep()
-        if ismine(stationcode):
+        if ismine(stationcode) and stationcode in tx_status['latest']:
             stop()
             return
         bearing, distance, strength = get_bearing_distance_strength(stationcode)
@@ -866,6 +880,8 @@ stations = [
     StationCode.EY,
     StationCode.PN,
     StationCode.TH,
+    # Second pass
+    StationCode.PN,
     StationCode.BG,
     StationCode.OX,
     StationCode.TS,
